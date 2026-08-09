@@ -12,11 +12,21 @@ COPY package.json package-lock.json* ./
 COPY client/package.json ./client/
 COPY server/package.json ./server/
 
-RUN npm ci --omit=dev --workspace server \
- && npm ci --workspace client
+# One install for the whole workspace.
+#
+# npm workspaces HOIST dependencies into the root node_modules, and each
+# `npm ci` rewrites that directory from scratch. Installing the workspaces in
+# two separate commands therefore left only the last one's packages behind —
+# the server's express vanished when the client install ran, and the container
+# died on startup with ERR_MODULE_NOT_FOUND.
+RUN npm ci
 
 COPY . .
 RUN npm run build --workspace client
+
+# Drop dev dependencies (vite, playwright, …) now that the client is built, so
+# the runtime image carries only what the server actually imports.
+RUN npm prune --omit=dev
 
 # -------------------------------------------------------------- runtime ----
 FROM node:22-alpine AS runtime
