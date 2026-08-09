@@ -254,13 +254,23 @@ test('consecutive-six counter resets after a non-six', () => {
 
 // ------------------------------------------------------------- home + win --
 
-test('overshooting the centre is not a legal move', () => {
+test('overshooting the centre bounces back instead of stranding the token', () => {
+  // A token near home must ALWAYS have a move. Suppressing the overshoot left
+  // it stuck and silently passed the turn — the "went 2 steps and stopped"
+  // bug. The overshoot now bounces off the centre and back down the column.
   let s = makeState(2);
-  s = place(s, 0, 0, B.FINISH_PROGRESS - 2); // needs exactly 2
-  assert.equal(legalMoves(s, 0, 3).length, 0, 'a 3 would overshoot');
-  const moves = legalMoves(s, 0, 2);
-  assert.equal(moves.length, 1);
-  assert.ok(moves[0].finishes);
+  s = place(s, 0, 0, B.FINISH_PROGRESS - 2); // needs exactly 2 to finish
+
+  const over = legalMoves(s, 0, 3);
+  assert.equal(over.length, 1, 'an overshoot must still be playable');
+  assert.equal(over[0].to, B.FINISH_PROGRESS - 1, 'a 3 bounces one back off the centre');
+  assert.ok(!over[0].finishes);
+  // The full dice value is travelled: 2 up to the centre, 1 back down.
+  assert.equal(over[0].path.length, 3, 'the walk must equal the dice value');
+
+  const exact = legalMoves(s, 0, 2);
+  assert.equal(exact.length, 1);
+  assert.ok(exact[0].finishes, 'an exact roll still finishes');
 });
 
 test('an exact roll finishes a token on the centre', () => {

@@ -70,7 +70,10 @@ export const GAME_CONFIG = {
   STACKING_ENABLED: true,
   BLOCKING_ENABLED: false,
   SAFE_CELLS_ENABLED: true,
-  EXACT_FINISH_REQUIRED: true,
+  // false = overshooting the centre bounces back down the home column, so a
+  // token near home can always move. true suppressed the move entirely, which
+  // stranded tokens and silently passed the turn.
+  EXACT_FINISH_REQUIRED: false,
 
   ON_TIMEOUT: 'auto_move', // 'auto_move' | 'skip'
   /**

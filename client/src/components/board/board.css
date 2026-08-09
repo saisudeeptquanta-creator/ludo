@@ -109,12 +109,28 @@
 .tokens { pointer-events: none; }
 
 .tk {
-  pointer-events: auto;
-  /* Matches the animator's per-square step so each square is one clean slide
-     that finishes before the next begins — no drift, no overlap. */
-  transition: transform 90ms linear;
+  /* Only a movable token takes taps. Leaving every token clickable meant the
+     enlarged hit areas of idle pieces overlapped and swallowed taps meant for
+     the piece you can actually move. */
+  pointer-events: none;
+  /* Must be <= the animator's SHORTEST per-square step (stepLong, 70ms) so each
+     square's slide finishes before the next is written. A transition longer
+     than the step gets cut off mid-slide and the piece visibly skips squares,
+     making the travelled count disagree with the die. */
+  transition: transform 65ms linear;
   transform-box: view-box;
 }
+
+/* Generous invisible tap target — the piece is far too small to hit reliably
+   on a phone. `fill: transparent` still receives pointer events; `none` would
+   not. */
+.tk__hit {
+  fill: transparent;
+  pointer-events: none;
+}
+
+.tk--movable { pointer-events: auto; }
+.tk--movable .tk__hit { pointer-events: auto; }
 
 .tk__spin { transition: transform 620ms var(--ease-out); }
 
@@ -154,34 +170,43 @@
 
 /* -- interactive ---------------------------------------------------------- */
 
-.tk--movable { cursor: pointer; }
+.tk--movable { cursor: pointer; touch-action: manipulation; }
 .tk--movable .tk__rim { fill: var(--gold-400); }
-.tk--movable .tk__disc { stroke: var(--gold-600); stroke-width: 0.07; }
-.tk--movable .tk__lift {
-  animation: tk-beckon 1.25s var(--ease) infinite;
+.tk--movable .tk__disc { stroke: var(--gold-600); stroke-width: 0.09; }
+
+/* A clear, steady pulse so it is obvious which pieces you may tap. Scale only —
+   no vertical drift, which read as the floaty motion that was removed. */
+.tk--movable .tk__spin {
+  animation: tk-beckon 1s var(--ease) infinite;
   transform-box: fill-box;
-  transform-origin: center bottom;
+  transform-origin: center;
 }
 
 @keyframes tk-beckon {
-  0%, 100% { transform: translateY(0) scale(1); }
-  45% { transform: translateY(-0.17px) scale(1.06); }
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.14); }
+}
+
+/* Pressing a piece gives immediate feedback, before the server replies. */
+.tk--movable:active .tk__spin {
+  animation: none;
+  transform: scale(0.9);
 }
 
 .tk__halo {
   fill: none;
   stroke: var(--gold-400);
-  stroke-width: 0.08;
-  opacity: 0.85;
-  animation: tk-halo 1.4s var(--ease) infinite;
+  stroke-width: 0.11;
+  opacity: 0.9;
+  animation: tk-halo 1.2s var(--ease) infinite;
   transform-box: fill-box;
   transform-origin: center;
 }
 
 @keyframes tk-halo {
-  0% { transform: scale(0.6); opacity: 0.9; }
-  70% { transform: scale(1.1); opacity: 0; }
-  100% { transform: scale(1.1); opacity: 0; }
+  0% { transform: scale(0.55); opacity: 0.95; }
+  70% { transform: scale(1.45); opacity: 0; }
+  100% { transform: scale(1.45); opacity: 0; }
 }
 
 .tk--dim { opacity: 0.48; }

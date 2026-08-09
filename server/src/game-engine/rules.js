@@ -79,11 +79,24 @@ export function legalMoves(state, seat, dice) {
 
     let to = releasing ? 0 : from + dice;
 
-    // Overshooting the centre: either the roll must be exact (the move simply
-    // does not exist) or the token stops on the centre.
+    /**
+     * Overshooting the centre.
+     *
+     * BOUNCE (default): the token walks up to the centre and the remaining
+     * steps carry it back down the home column, so the full dice value is
+     * always travelled. This is the standard rule and, crucially, it keeps the
+     * move LEGAL — the previous behaviour dropped the move entirely, so a token
+     * near home could not move at all and the turn silently passed.
+     *
+     * When EXACT_FINISH_REQUIRED is set the move is suppressed instead.
+     */
+    let bounced = false;
     if (to > B.FINISH_PROGRESS) {
       if (cfg.EXACT_FINISH_REQUIRED) continue;
-      to = B.FINISH_PROGRESS;
+      to = B.FINISH_PROGRESS - (to - B.FINISH_PROGRESS);
+      bounced = true;
+      // A bounce can never leave the home column, so this stays > ring range.
+      if (to <= B.LAST_RING_PROGRESS) continue;
     }
 
     const destKey = B.cellKey(token.color, to);
@@ -96,7 +109,7 @@ export function legalMoves(state, seat, dice) {
     // Blocks along the way (and on the destination itself).
     if (cfg.BLOCKING_ENABLED) {
       let blocked = false;
-      for (const p of B.pathBetween(token.color, from, to)) {
+      for (const p of B.pathBetween(token.color, from, to, bounced)) {
         const occupants = occ.get(B.cellKey(token.color, p));
         if (isBlockedFor(occupants, seat)) {
           blocked = true;
@@ -128,7 +141,8 @@ export function legalMoves(state, seat, dice) {
       releases: releasing,
       finishes: to === B.FINISH_PROGRESS,
       captures,
-      path: B.pathBetween(token.color, from, to),
+      bounced,
+      path: B.pathBetween(token.color, from, to, bounced),
     });
   }
 

@@ -184,11 +184,22 @@ export function coordFor(color, progress, tokenIndex = 0) {
  * origin and including the destination. Drives step-by-step animation on the
  * client and blocking checks on the server.
  */
-export function pathBetween(color, from, to) {
+export function pathBetween(color, from, to, bounced = false) {
   // Releasing from the yard (from === -1) is a single hop onto the entry
   // square, which this loop already produces as [0].
   const path = [];
-  for (let p = Math.max(from, -1) + 1; p <= to; p += 1) path.push(p);
+  const start = Math.max(from, -1);
+
+  // A bounce off the centre cannot be inferred from `from` and `to` alone: a
+  // token at 55 rolling 3 bounces to 56, which still looks like a forward move.
+  // The caller therefore states it. The token walks up to the centre and back.
+  if (bounced) {
+    for (let p = start + 1; p <= FINISH_PROGRESS; p += 1) path.push(p);
+    for (let p = FINISH_PROGRESS - 1; p >= to; p -= 1) path.push(p);
+    return path;
+  }
+
+  for (let p = start + 1; p <= to; p += 1) path.push(p);
   return path;
 }
 

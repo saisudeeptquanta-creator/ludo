@@ -84,6 +84,13 @@ function Token({
     >
       {movable && <circle className="tk__halo" r={r * 1.4} />}
 
+      {/* Invisible tap target, far larger than the disc itself.
+          The visual piece is only ~0.88 board units across, which is a few
+          millimetres on a phone and very hard to hit. This circle is drawn
+          first (so it sits behind the art) and is the element that actually
+          receives the tap. */}
+      {onClick && <circle className="tk__hit" r={r * 2.1} />}
+
       {/* `tk__spin` keeps the piece upright against the board rotation.
           There is deliberately NO `key={hop}` here: re-keying remounted this
           subtree on every square, which restarted the CSS transform transition

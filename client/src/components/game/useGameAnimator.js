@@ -51,8 +51,8 @@ const TIMING = {
    * different number of squares than the die shows.
    */
   step: 95,
-  /** Slightly quicker on long moves so a six does not drag. */
-  stepLong: 95,
+  /** Quicker on long moves (a six, or a bounce off the centre) so it does not drag. */
+  stepLong: 70,
   longMoveThreshold: 4,
   /** Beat on the origin square before the first hop, so it is visible. */
   liftOff: 40,
@@ -100,6 +100,8 @@ async function playMove(event) {
   };
   const store = useGame.getState();
   const isRelease = event.from < 0;
+  // A bounce off the centre walks up and back, so the path can be ~11 squares.
+  // Tighten the step on long paths so the move still lands promptly.
   const step = path.length > TIMING.longMoveThreshold ? TIMING.stepLong : TIMING.step;
 
   // Show the token on its origin first so the first hop reads as movement.
