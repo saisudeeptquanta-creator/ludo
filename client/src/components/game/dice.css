@@ -60,13 +60,13 @@
   width: 72%;
   height: 72%;
   transform-style: preserve-3d;
-  /* Snappy settle: the die drops onto its face almost immediately. */
-  transition: transform 150ms cubic-bezier(0.16, 0.9, 0.24, 1);
+  /* The settle: the die visibly decelerates onto its face. */
+  transition: transform 480ms cubic-bezier(0.16, 0.9, 0.24, 1);
 }
 
-/* The tumble itself is short and fast — a lot of rotation in little time. */
+/* The tumble itself stays fast — a lot of rotation in the time available. */
 .die-btn--rolling .die {
-  transition: transform 200ms cubic-bezier(0.25, 0.6, 0.3, 1);
+  transition: transform 620ms cubic-bezier(0.25, 0.6, 0.3, 1);
 }
 
 .die__face {
