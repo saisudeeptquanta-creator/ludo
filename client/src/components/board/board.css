@@ -1,0 +1,212 @@
+/**
+ * Board styling.
+ *
+ * Token movement is a CSS transition on `transform` plus an inner arc/squash,
+ * both compositor-driven so they stay smooth on a mid-range phone.
+ */
+
+.board-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: min(94vw, calc(var(--app-height, 100dvh) * 0.54), 600px);
+  margin-inline: auto;
+  padding: 3%;
+  border-radius: var(--radius-lg);
+  /* Polished wooden frame around the play surface. */
+  background:
+    linear-gradient(145deg, #6b4d8f 0%, #3b2d68 38%, #241c47 100%);
+  box-shadow:
+    0 22px 52px rgb(0 0 0 / 0.58),
+    0 2px 0 rgb(255 255 255 / 0.16) inset,
+    0 -5px 0 rgb(0 0 0 / 0.38) inset,
+    0 0 0 1px rgb(255 255 255 / 0.09);
+}
+
+/* Ambient glow so the board reads as lit from within. */
+.board-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(122 92 255 / 0.26), transparent 62%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.board {
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--radius) * 0.8);
+  overflow: visible;
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.3));
+}
+
+.board__rotor { transition: transform 620ms var(--ease-out); }
+
+/* -------------------------------------------------------------------- yards */
+
+.yard__field { fill: var(--player); }
+.yard__pocket { fill: #ffffff; }
+.yard__ring {
+  fill: none;
+  stroke: var(--player);
+  stroke-width: 0.07;
+  opacity: 0.55;
+}
+.yard__dot {
+  fill: color-mix(in srgb, var(--player) 16%, white);
+  stroke: var(--player);
+  stroke-width: 0.04;
+  opacity: 0.75;
+}
+
+/* ------------------------------------------------------------------ squares */
+
+.sq { stroke: none; }
+.sq--plain { fill: #ffffff; }
+.sq--entry { fill: var(--player); }
+.sq--star { fill: color-mix(in srgb, var(--gold-400) 34%, white); }
+.sq--home { fill: var(--player); }
+.sq--corner { fill: #eaeef9; }
+
+.sq__star { fill: color-mix(in srgb, var(--gold-600) 92%, black); opacity: 0.9; }
+.sq__arrow { fill: rgb(255 255 255 / 0.95); }
+
+.grid-lines rect {
+  fill: none;
+  stroke: rgb(30 36 78 / 0.24);
+  stroke-width: 0.03;
+}
+
+/* ------------------------------------------------------------------- centre */
+
+.centre__tri {
+  fill: var(--player);
+  stroke: #ffffff;
+  stroke-width: 0.08;
+  stroke-linejoin: round;
+}
+.centre__hub {
+  fill: #ffffff;
+  stroke: rgb(30 36 78 / 0.2);
+  stroke-width: 0.04;
+}
+.centre__star {
+  fill: var(--gold-500);
+  animation: centre-twinkle 3s var(--ease) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes centre-twinkle {
+  0%, 100% { opacity: 0.82; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.09); }
+}
+
+/* ------------------------------------------------------------------ tokens */
+
+.tokens { pointer-events: none; }
+
+.tk {
+  pointer-events: auto;
+  transition: transform 155ms cubic-bezier(0.45, 0, 0.35, 1);
+  transform-box: view-box;
+}
+
+.tk__spin { transition: transform 620ms var(--ease-out); }
+
+.tk__shadow { fill: rgb(0 0 0 / 0.34); }
+
+/* A solid counter: white rim, saturated disc, darker centre, highlight.
+   The white rim is what makes a piece readable on top of its own yard. */
+.tk__rim { fill: #ffffff; }
+.tk__disc {
+  fill: var(--player);
+  stroke: var(--player-deep);
+  stroke-width: 0.06;
+}
+.tk__inner { fill: var(--player-dark); opacity: 0.5; }
+.tk__gloss { fill: rgb(255 255 255 / 0.55); }
+
+.tk__stack circle { fill: #fff; stroke: var(--player-deep); stroke-width: 0.05; }
+.tk__stack text {
+  fill: var(--player-deep);
+  font-family: var(--font-display);
+  font-size: 0.46px;
+  font-weight: 800;
+}
+
+/* -- movement ------------------------------------------------------------- */
+
+.tk--walking .tk__lift {
+  animation: tk-hop 155ms var(--ease) both;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+@keyframes tk-hop {
+  0% { transform: translateY(0) scaleY(0.9) scaleX(1.08); }
+  38% { transform: translateY(-0.36px) scaleY(1.1) scaleX(0.92); }
+  72% { transform: translateY(-0.26px) scaleY(1.02) scaleX(0.99); }
+  100% { transform: translateY(0) scaleY(1) scaleX(1); }
+}
+
+.tk--landed .tk__lift {
+  animation: tk-land 210ms var(--ease-bounce) both;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+@keyframes tk-land {
+  0% { transform: translateY(-0.22px) scaleY(1.08) scaleX(0.94); }
+  45% { transform: translateY(0) scaleY(0.8) scaleX(1.2); }
+  100% { transform: translateY(0) scaleY(1) scaleX(1); }
+}
+
+.tk--walking .tk__shadow { opacity: 0.5; }
+
+/* -- interactive ---------------------------------------------------------- */
+
+.tk--movable { cursor: pointer; }
+.tk--movable .tk__rim { fill: var(--gold-400); }
+.tk--movable .tk__disc { stroke: var(--gold-600); stroke-width: 0.07; }
+.tk--movable .tk__lift {
+  animation: tk-beckon 1.25s var(--ease) infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+@keyframes tk-beckon {
+  0%, 100% { transform: translateY(0) scale(1); }
+  45% { transform: translateY(-0.17px) scale(1.06); }
+}
+
+.tk__halo {
+  fill: none;
+  stroke: var(--gold-400);
+  stroke-width: 0.08;
+  opacity: 0.85;
+  animation: tk-halo 1.4s var(--ease) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes tk-halo {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  70% { transform: scale(1.1); opacity: 0; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+
+.tk--dim { opacity: 0.48; }
+
+.tk--captured { animation: tk-captured 640ms var(--ease-bounce); }
+
+@keyframes tk-captured {
+  0% { filter: brightness(1); }
+  25% { filter: brightness(2.5) saturate(1.8); }
+  60% { filter: brightness(1.3); }
+  100% { filter: brightness(1); }
+}
+
+.tk--finished .tk__rim { fill: var(--gold-400); }

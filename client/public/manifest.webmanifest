@@ -1,0 +1,27 @@
+{
+  "name": "Ludo — Play with Friends",
+  "short_name": "Ludo",
+  "description": "Real-time Ludo with 2-4 friends. No sign-up, just a name and a room code.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "portrait",
+  "background_color": "#080b1a",
+  "theme_color": "#080b1a",
+  "categories": ["games"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

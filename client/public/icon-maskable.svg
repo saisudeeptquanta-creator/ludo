@@ -1,0 +1,21 @@
+<!-- Maskable variant: artwork kept inside the 80% safe zone so Android can crop
+     it to any shape without clipping the pips. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2a3170"/>
+      <stop offset="100%" stop-color="#0e1330"/>
+    </linearGradient>
+    <linearGradient id="diem" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#dbe1f4"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bgm)"/>
+  <rect x="166" y="166" width="180" height="180" rx="42" fill="url(#diem)"/>
+  <circle cx="211" cy="211" r="19" fill="#e8384f"/>
+  <circle cx="301" cy="211" r="19" fill="#1faa5f"/>
+  <circle cx="256" cy="256" r="19" fill="#f0b429"/>
+  <circle cx="211" cy="301" r="19" fill="#2585e8"/>
+  <circle cx="301" cy="301" r="19" fill="#7a5cff"/>
+</svg>

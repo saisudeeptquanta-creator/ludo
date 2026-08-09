@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --test tests/engine.test.js)",
+      "Bash(timeout 12 node src/index.js)"
+    ]
+  }
+}

@@ -1,0 +1,162 @@
+/**
+ * Design tokens.
+ *
+ * The palette is a physical board game seen at night: deep indigo felt, warm
+ * brass, and four saturated player colours that stay distinguishable at the size
+ * of a fingertip. Every colour in the app resolves to something declared here.
+ */
+
+:root {
+  /* -- board colours: vivid, high-contrast, colour-blind distinguishable ---- */
+  --red-300: #ff9aa5;
+  --red-400: #ff6b7d;
+  --red-500: #e8384f;
+  --red-600: #bb1f34;
+  --red-700: #8d1424;
+
+  --green-300: #8ef0b8;
+  --green-400: #4bd98a;
+  --green-500: #1faa5f;
+  --green-600: #157f47;
+  --green-700: #0d5c33;
+
+  --yellow-300: #ffe89a;
+  --yellow-400: #ffd45e;
+  --yellow-500: #f5b31d;
+  --yellow-600: #cf8c07;
+  --yellow-700: #9c6803;
+
+  --blue-300: #9fd0ff;
+  --blue-400: #5eb0ff;
+  --blue-500: #2585e8;
+  --blue-600: #1663b8;
+  --blue-700: #0f478a;
+
+  /* -- brand / accents ----------------------------------------------------- */
+  --brand-300: #b9a6ff;
+  --brand-400: #9b83ff;
+  --brand-500: #7a5cff;
+  --brand-600: #5f3fe0;
+  --brand-700: #452bb0;
+
+  --gold-300: #ffe9a8;
+  --gold-400: #ffd571;
+  --gold-500: #f0b429;
+  --gold-600: #c98a10;
+
+  /* -- surfaces: night-time felt ------------------------------------------- */
+  --bg-deep: #080b1a;
+  --bg: #0e1330;
+  --bg-raised: #161c42;
+  --surface: #1d2450;
+  --surface-2: #262e63;
+  --surface-3: #333c7a;
+
+  --border: #2f3873;
+  --border-soft: #252d5f;
+  --border-strong: #454f96;
+
+  --text: #f2f4ff;
+  --text-muted: #a8b0dd;
+  --text-subtle: #6f78ae;
+  --text-inverse: #0b0e1a;
+
+  --success: #1faa5f;
+  --warning: #f5b31d;
+  --danger: #e8384f;
+
+  /* -- typography ---------------------------------------------------------- */
+  --font-sans: 'Nunito', 'Baloo 2', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-display: 'Baloo 2', 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+
+  --text-xs: 0.72rem;
+  --text-sm: 0.85rem;
+  --text-base: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.4rem;
+  --text-2xl: 1.85rem;
+  --text-3xl: 2.4rem;
+  --text-4xl: 3.2rem;
+
+  --weight-medium: 600;
+  --weight-bold: 700;
+  --weight-black: 800;
+
+  /* -- spacing ------------------------------------------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* -- radii: generous and toy-like ---------------------------------------- */
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-md: 20px;
+  --radius-lg: 26px;
+  --radius-xl: 34px;
+  --radius-full: 999px;
+
+  /* -- elevation ----------------------------------------------------------- */
+  --shadow-sm: 0 2px 6px rgb(0 0 0 / 0.3);
+  --shadow: 0 6px 18px rgb(0 0 0 / 0.38);
+  --shadow-md: 0 12px 32px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 24px 60px rgb(0 0 0 / 0.55);
+
+  /* Chunky "pressable" bottom edge, the standard mobile-game button look. */
+  --lip: 0 4px 0;
+  --lip-lg: 0 6px 0;
+
+  /* -- motion -------------------------------------------------------------- */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+  --dur-fast: 130ms;
+  --dur: 240ms;
+  --dur-slow: 420ms;
+
+  --z-board: 1;
+  --z-hud: 10;
+  --z-overlay: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+
+  /* Real viewport height, kept in sync by installViewportFix(). */
+  --app-height: 100dvh;
+}
+
+/* Per-colour custom properties, used by tokens, seats, chips and the board. */
+.c-RED {
+  --player: var(--red-500);
+  --player-light: var(--red-300);
+  --player-mid: var(--red-400);
+  --player-dark: var(--red-600);
+  --player-deep: var(--red-700);
+}
+.c-GREEN {
+  --player: var(--green-500);
+  --player-light: var(--green-300);
+  --player-mid: var(--green-400);
+  --player-dark: var(--green-600);
+  --player-deep: var(--green-700);
+}
+.c-YELLOW {
+  --player: var(--yellow-500);
+  --player-light: var(--yellow-300);
+  --player-mid: var(--yellow-400);
+  --player-dark: var(--yellow-600);
+  --player-deep: var(--yellow-700);
+}
+.c-BLUE {
+  --player: var(--blue-500);
+  --player-light: var(--blue-300);
+  --player-mid: var(--blue-400);
+  --player-dark: var(--blue-600);
+  --player-deep: var(--blue-700);
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover exposes env(safe-area-inset-*) so the game can paint
+         under a notch; user-scalable=no keeps a double-tap from zooming the board. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#080b1a" />
+    <meta name="description" content="Play Ludo online with 2–4 friends. No sign-up." />
+
+    <!-- Home-screen install: runs without browser chrome. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Ludo" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <title>Ludo</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23ffffff'/><circle cx='30' cy='30' r='10' fill='%237a5cff'/><circle cx='70' cy='30' r='10' fill='%23e8384f'/><circle cx='50' cy='50' r='10' fill='%23f0b429'/><circle cx='30' cy='70' r='10' fill='%231faa5f'/><circle cx='70' cy='70' r='10' fill='%232585e8'/></svg>"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

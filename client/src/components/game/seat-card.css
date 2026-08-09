@@ -1,0 +1,153 @@
+.seatcard {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  /* Frosted glass so seats read clearly over the board's glow. */
+  background: rgb(14 19 48 / 0.78);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.4);
+  min-width: 0;
+  transition: transform var(--dur) var(--ease-spring), border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+/* Your own seat sits on its colour so it is unmistakably yours. */
+.seatcard--mine {
+  border-color: color-mix(in srgb, var(--player) 60%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--player) 30%, rgb(14 19 48 / 0.82)), rgb(14 19 48 / 0.82));
+}
+
+/* The active seat lifts, brightens and pulses. */
+.seatcard--turn {
+  border-color: var(--player);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--player) 40%, rgb(14 19 48 / 0.8)), rgb(14 19 48 / 0.8));
+  transform: translateY(-3px) scale(1.04);
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--player) 42%, transparent),
+    0 0 0 1px var(--player);
+  animation: seat-breathe 2s var(--ease) infinite;
+}
+
+@keyframes seat-breathe {
+  0%, 100% { box-shadow: 0 8px 24px color-mix(in srgb, var(--player) 42%, transparent), 0 0 0 1px var(--player); }
+  50% { box-shadow: 0 8px 32px color-mix(in srgb, var(--player) 62%, transparent), 0 0 0 2px var(--player); }
+}
+
+.seatcard--off { opacity: 0.55; }
+.seatcard--left { opacity: 0.35; }
+.seatcard--done { border-color: var(--gold-500); }
+
+/**
+ * The avatar reserves room for the timer ring that surrounds it, so the ring
+ * never overlaps the name beside it and the row keeps a stable height whether
+ * or not it is this player's turn.
+ */
+.seatcard__avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  margin: 5px;
+  display: grid;
+  place-items: center;
+}
+
+.seatcard__timer {
+  position: absolute;
+  /* Centred on the avatar rather than offset from its edges. */
+  top: 50%;
+  left: 50%;
+  width: 48px;
+  height: 48px;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  pointer-events: none;
+  overflow: visible;
+}
+.seatcard__timer-bg { fill: none; stroke: rgb(0 0 0 / 0.35); stroke-width: 3.5; }
+.seatcard__timer-fg {
+  fill: none;
+  stroke: var(--player);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 140ms linear, stroke var(--dur) var(--ease);
+}
+.seatcard__timer-fg.is-urgent { stroke: var(--red-400); }
+
+.seatcard__off-badge {
+  position: absolute;
+  right: -4px; bottom: -4px;
+  width: 17px; height: 17px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--warning);
+  color: #2a1c00;
+  font-size: 9px;
+  font-weight: var(--weight-black);
+}
+
+.seatcard__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  /* Keeps the name block optically centred against the avatar. */
+  justify-content: center;
+}
+
+.seatcard__name {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+.seatcard__you { color: var(--text-subtle); font-weight: var(--weight-medium); }
+
+/* Four pips, filled as tokens reach the centre. */
+.seatcard__pips { display: flex; gap: 3px; }
+.seatcard__pips i {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--player);
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.seatcard__pips i.is-home {
+  background: var(--player);
+  box-shadow: 0 0 5px var(--player);
+}
+
+.seatcard__seconds {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.seatcard__seconds.is-urgent { color: var(--red-300); animation: glow-pulse 0.8s var(--ease) infinite; }
+
+.seatcard__rank {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-black);
+  color: var(--gold-400);
+  flex-shrink: 0;
+}
+
+.seatcard__emote {
+  position: absolute;
+  top: -18px;
+  right: var(--space-2);
+  font-size: 1.7rem;
+  pointer-events: none;
+  animation: emote-rise 2.4s var(--ease-out) forwards;
+  filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.5));
+  z-index: 5;
+}

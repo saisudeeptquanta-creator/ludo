@@ -1,0 +1,18 @@
+node_modules/
+dist/
+data/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.local
+logs/
+*.log
+.DS_Store
+Thumbs.db
+
+# Playwright browser-test scratch files
+*.mjs
+!server/src/**/*.mjs
+*.png
+!client/public/*.svg

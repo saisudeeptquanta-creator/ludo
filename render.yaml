@@ -1,0 +1,27 @@
+# Render blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploy: push this repo to GitHub, then in Render choose
+# "New +" -> "Blueprint" and point it at the repo. Everything below is applied
+# automatically, including the persistent disk the SQLite database lives on.
+services:
+  - type: web
+    name: ludo
+    runtime: docker
+    plan: starter # a persistent disk requires a paid instance type
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      # The database must sit on the mounted disk, not the ephemeral filesystem.
+      - key: DB_FILE
+        value: /data/ludo.db
+      - key: TURN_DURATION_MS
+        value: "25000"
+      - key: RECONNECT_GRACE_MS
+        value: "90000"
+    disk:
+      name: ludo-data
+      mountPath: /data
+      sizeGB: 1

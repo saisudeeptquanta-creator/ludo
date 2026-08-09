@@ -1,0 +1,48 @@
+# Fly.io configuration.
+#
+# Deploy:
+#   fly launch --no-deploy       # once, to create the app
+#   fly volumes create ludo_data --size 1
+#   fly deploy
+#
+# Rename `app` below to something unique before launching.
+app = "ludo-game"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "4000"
+  DB_FILE = "/data/ludo.db"
+
+# SQLite needs a real disk; without this the database resets on every deploy.
+[[mounts]]
+  source = "ludo_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  # Websockets need at least one machine always running, otherwise a sleeping
+  # instance drops live games.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "4s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
