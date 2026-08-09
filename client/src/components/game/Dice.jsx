@@ -53,9 +53,11 @@ export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
 
   useEffect(() => {
     if (phase === 'rolling') {
+      // More rotation over a shorter duration, so the die reads as spinning
+      // FAST rather than merely turning slowly.
       spins.current = {
-        x: spins.current.x + 720 + Math.floor(Math.random() * 4) * 90,
-        y: spins.current.y + 900 + Math.floor(Math.random() * 4) * 90,
+        x: spins.current.x + 1440 + Math.floor(Math.random() * 4) * 90,
+        y: spins.current.y + 1800 + Math.floor(Math.random() * 4) * 90,
       };
       setTransform(`rotateX(${spins.current.x}deg) rotateY(${spins.current.y}deg)`);
       return;

@@ -42,23 +42,30 @@ import { sfx } from '../../lib/audio.js';
 /* --------------------------------------------------------------- timings -- */
 
 const TIMING = {
-  /** Per square walked. */
-  step: 170,
-  /** Faster when a move is long, so a six does not drag. */
-  stepLong: 135,
+  /**
+   * Per square walked.
+   *
+   * Must be >= the `.tk` CSS transform transition (90ms) so each square's slide
+   * COMPLETES before the next is written. When the step is shorter than the
+   * transition, squares get skipped visually and the token appears to travel a
+   * different number of squares than the die shows.
+   */
+  step: 95,
+  /** Slightly quicker on long moves so a six does not drag. */
+  stepLong: 95,
   longMoveThreshold: 4,
   /** Beat on the origin square before the first hop, so it is visible. */
-  liftOff: 60,
+  liftOff: 40,
   /** Settle after the final square. */
-  land: 190,
+  land: 90,
   /** Tumble shown for another player's roll (ours is already tumbling). */
-  tumble: 460,
+  tumble: 200,
   /** Beat after the die settles, before the move plays. */
-  afterRoll: 260,
-  capture: 620,
-  finish: 500,
-  extraTurn: 260,
-  notice: 380,
+  afterRoll: 60,
+  capture: 380,
+  finish: 300,
+  extraTurn: 160,
+  notice: 240,
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -137,7 +144,8 @@ async function playRoll(event, mySeat, fast) {
 
   useGame.getState().setDice({ value: event.value, phase: 'result' });
   sfx.diceResult(event.value);
-  if (!fast) await sleep(mine ? 160 : TIMING.afterRoll);
+  // Just enough for the 150ms settle to read before the token starts walking.
+  if (!fast) await sleep(140);
 }
 
 /**

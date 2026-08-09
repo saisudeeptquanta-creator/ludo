@@ -59,7 +59,7 @@ const CENTER_TRIANGLES = [
 /* ------------------------------------------------------------------ token -- */
 
 function Token({
-  x, y, color, size, movable, dimmed, walking, hop, landed, captured, finished,
+  x, y, color, size, movable, dimmed, walking, landed, captured, finished,
   count, boardRotation, onClick, label,
 }) {
   const r = size / 2;
@@ -84,8 +84,13 @@ function Token({
     >
       {movable && <circle className="tk__halo" r={r * 1.4} />}
 
-      {/* `tk__lift` arcs the piece each square; `tk__spin` keeps it upright. */}
-      <g className="tk__lift" key={hop ?? 'still'}>
+      {/* `tk__spin` keeps the piece upright against the board rotation.
+          There is deliberately NO `key={hop}` here: re-keying remounted this
+          subtree on every square, which restarted the CSS transform transition
+          from scratch mid-slide and made the token visibly skip squares — the
+          count on the board then disagreed with the die. The piece now slides
+          continuously and lands on exactly the square the server sent. */}
+      <g className="tk__lift">
         <g className="tk__spin" style={{ transform: `rotate(${-boardRotation}deg)` }}>
           {/* Contact shadow, then a solid disc with a rim and a highlight.
               A filled disc reads far better at thumbnail size than an outlined
@@ -312,7 +317,6 @@ export function Board({ game, movableTokens = [], onTokenClick, animating, captu
                   movable={movable}
                   dimmed={isYourTurn && yours && movableTokens.length > 0 && !movable}
                   walking={walking}
-                  hop={walking ? animating.hop : undefined}
                   landed={walking && animating.landed}
                   captured={captured}
                   finished={t.finished}
