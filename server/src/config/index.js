@@ -59,7 +59,15 @@ export const GAME_CONFIG = {
 
   /** Dice value required to bring a token out of the yard. */
   TOKEN_RELEASE_ROLL: 6,
-  RELEASE_ON_ANY_ROLL_WHEN_STUCK: false,
+  /**
+   * When every token is still in the yard, any roll releases one.
+   *
+   * On by default: without it the opening is dead time, since a player with
+   * nothing on the board can only wait for a six. This keeps the dice honest —
+   * the distribution is untouched and the rule applies to all seats equally —
+   * while making sure a turn is never simply skipped.
+   */
+  RELEASE_ON_ANY_ROLL_WHEN_STUCK: true,
 
   EXTRA_TURN_ON_SIX: true,
   EXTRA_TURN_ON_CAPTURE: true,

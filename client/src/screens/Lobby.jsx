@@ -211,6 +211,7 @@ function RulesSheet({ open, onClose, room, onSave }) {
     ['safeCellsEnabled', 'Safe squares'],
     ['stackingEnabled', 'Stack your own tokens'],
     ['blockingEnabled', 'Stacks block opponents'],
+    ['releaseOnAnyRollWhenStuck', 'Any roll leaves the yard when stuck'],
   ];
 
   return (

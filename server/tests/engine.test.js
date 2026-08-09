@@ -86,19 +86,43 @@ test('crypto dice only ever produces 1..6 and covers every face', () => {
 
 // ------------------------------------------------------------- releasing ---
 
-test('a token leaves the yard only on a 6', () => {
-  const s = makeState(2);
-  assert.equal(legalMoves(s, 0, 3).length, 0);
-  assert.equal(legalMoves(s, 0, 5).length, 0);
-  assert.equal(legalMoves(s, 0, 6).length, 4, 'all four tokens may be released');
+test('a token leaves the yard only on a 6 once anything is on the board', () => {
+  // The six-only rule still governs the normal case. It is relaxed ONLY when
+  // every token is stuck in the yard (see the test below), so put one token on
+  // the track to take that exemption out of play.
+  let s = makeState(2, { RELEASE_ON_ANY_ROLL_WHEN_STUCK: true });
+  s = place(s, 0, 0, 4);
+
+  const releases = (dice) => legalMoves(s, 0, dice).filter((m) => m.releases);
+  assert.equal(releases(3).length, 0, 'a 3 releases nothing');
+  assert.equal(releases(5).length, 0, 'a 5 releases nothing');
+  assert.equal(releases(6).length, 3, 'a 6 releases the three still in the yard');
 });
 
-test('rolling a non-6 with everything in the yard passes the turn', () => {
-  const s = makeState(2);
+test('with the rule off, a non-6 on a full yard passes the turn', () => {
+  const s = makeState(2, { RELEASE_ON_ANY_ROLL_WHEN_STUCK: false });
+  assert.equal(legalMoves(s, 0, 3).length, 0);
+
   const r = E.rollDice(s, { seat: 0, value: 3 });
   assert.ok(r.events.some((e) => e.type === 'NO_LEGAL_MOVE'));
   assert.equal(r.state.currentSeat, 1, 'turn moves to the next player');
   assert.equal(r.state.diceRolled, false, 'next player starts un-rolled');
+});
+
+test('with the rule on, a stuck player can leave the yard on any roll', () => {
+  // The dead opening: every token in the yard means every non-6 is a wasted
+  // turn. This rule removes that without touching the dice distribution.
+  const s = makeState(2, { RELEASE_ON_ANY_ROLL_WHEN_STUCK: true });
+
+  for (let dice = 1; dice <= 6; dice += 1) {
+    const moves = legalMoves(s, 0, dice);
+    assert.equal(moves.length, 4, `a ${dice} must release`);
+    assert.ok(moves.every((m) => m.releases && m.to === 0), 'each lands on the entry square');
+  }
+
+  const r = E.rollDice(s, { seat: 0, value: 2 });
+  assert.ok(!r.events.some((e) => e.type === 'NO_LEGAL_MOVE'), 'the turn is not wasted');
+  assert.equal(r.state.currentSeat, 0, 'the player keeps the turn to play the move');
 });
 
 test('releasing lands the token on its own entry square', () => {

@@ -70,12 +70,30 @@ export function legalMoves(state, seat, dice) {
   const mine = tokensOf(state, seat);
   const moves = [];
 
+  /**
+   * Stuck in the yard with nothing else to play.
+   *
+   * Normally a token only leaves the yard on a six. When EVERY token is still
+   * in the yard, that rule means a player can roll for turn after turn and do
+   * nothing at all — the dead opening that makes the start of a game a waiting
+   * game rather than a playing one.
+   *
+   * With RELEASE_ON_ANY_ROLL_WHEN_STUCK, any roll releases a token in exactly
+   * that situation. It is a RULE, applied identically to every seat and visible
+   * in the room settings — not a thumb on the dice. The odds stay uniform;
+   * what changes is that a roll is never wasted.
+   */
+  const stuckInYard =
+    cfg.RELEASE_ON_ANY_ROLL_WHEN_STUCK &&
+    mine.length > 0 &&
+    mine.every((t) => B.isInYard(t.progress));
+
   for (const token of mine) {
     const from = token.progress;
     if (B.isFinished(from)) continue;
 
     const releasing = B.isInYard(from);
-    if (releasing && dice !== cfg.TOKEN_RELEASE_ROLL) continue;
+    if (releasing && dice !== cfg.TOKEN_RELEASE_ROLL && !stuckInYard) continue;
 
     let to = releasing ? 0 : from + dice;
 

@@ -48,6 +48,7 @@ function defaultSettings() {
     stackingEnabled: GAME_CONFIG.STACKING_ENABLED,
     safeCellsEnabled: GAME_CONFIG.SAFE_CELLS_ENABLED,
     blockingEnabled: GAME_CONFIG.BLOCKING_ENABLED,
+    releaseOnAnyRollWhenStuck: GAME_CONFIG.RELEASE_ON_ANY_ROLL_WHEN_STUCK,
   };
 }
 
@@ -242,6 +243,7 @@ export function updateSettings(roomId, hostId, patch) {
     'stackingEnabled',
     'safeCellsEnabled',
     'blockingEnabled',
+    'releaseOnAnyRollWhenStuck',
   ]) {
     if (patch[key] !== undefined) next[key] = Boolean(patch[key]);
   }

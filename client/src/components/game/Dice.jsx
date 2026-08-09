@@ -1,37 +1,44 @@
 /**
- * The die.
+ * A real 3D die.
  *
  * ===========================================================================
  * How this works
  * ===========================================================================
  *
- * The die is a flat 2D face that CYCLES through random faces while rolling and
- * then stops on the server's value. There is no 3D cube and no CSS transition
- * driving the outcome.
+ * Six faces on a CSS cube. While rolling, the cube spins continuously from a
+ * keyframe animation — no JS per frame, so the tumble cannot stutter when the
+ * main thread is busy replaying a move. When the roll ends, the animation is
+ * removed and ONE transform is written: the fixed rotation that brings the
+ * server's face to the camera.
  *
- * That is the whole point of this design. A transition-based cube has to be
- * told "spin now" and later "settle there" as two separate style writes, and
- * whichever way you sequence them the browser can coalesce the two into one
- * transition — the die then appears to hang on some arbitrary face and jump
- * straight to the result without a visible tumble.
+ * That last part is the whole design. The value is never invented here and
+ * never interpolated toward — `FACE_ROTATION[value]` is a constant, so the face
+ * you end up looking at is exactly the number the server rolled.
  *
- * Here the face shown while rolling is just state, advanced on a timer. When
- * the roll ends we write the real value once. The last frame of the tumble and
- * the result are rendered by the same code path, so there is nothing to
- * interrupt and nothing to settle: the number simply stops changing.
+ * The earlier cube failed because it drove the spin and the settle as two
+ * competing transitions on the same property; the browser coalesced them and
+ * the die appeared to hang mid-tumble and then snap. Here the two states are
+ * mutually exclusive: `--rolling` runs an animation and no transition,
+ * `--settled` runs a transition and no animation.
  */
 import { useEffect, useRef, useState } from 'react';
 import './dice.css';
 
 /**
- * How often the face changes mid-tumble.
+ * Rotation that brings each face to the front.
  *
- * Roughly three animation frames. Faster than this and the pips smear into an
- * unreadable grey; slower and you see a sequence of held numbers rather than a
- * tumble. The CSS tumble keyframe is the same length, so each face gets exactly
- * one full rotation beat.
+ * These must match the face layout in the markup below. Front=1, back=6,
+ * right=5, left=2, top=3, bottom=4 — opposite faces sum to seven, as on a
+ * real die.
  */
-const CYCLE_MS = 55;
+const FACE_ROTATION = {
+  1: { x: 0, y: 0 },
+  2: { x: 0, y: 90 },
+  3: { x: -90, y: 0 },
+  4: { x: 90, y: 0 },
+  5: { x: 0, y: -90 },
+  6: { x: 0, y: 180 },
+};
 
 /**
  * Pip positions per face as explicit [column, row] on a 3x3 grid.
@@ -49,10 +56,10 @@ const PIPS = {
   6: [[1, 1], [3, 1], [1, 2], [3, 2], [1, 3], [3, 3]],
 };
 
-function Face({ value }) {
+function Face({ value, className }) {
   return (
-    <span className="die__face">
-      {(PIPS[value] ?? PIPS[1]).map(([col, row], i) => (
+    <span className={`die__face ${className}`}>
+      {PIPS[value].map(([col, row], i) => (
         <span key={i} className="die__pip" style={{ gridColumn: col, gridRow: row }} />
       ))}
     </span>
@@ -62,47 +69,33 @@ function Face({ value }) {
 export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
   const rolling = phase === 'rolling';
 
-  // The face currently painted. While rolling this is decorative noise; the
-  // moment the roll ends it is replaced by the server's value, below.
-  const [face, setFace] = useState(1);
-  // Bumped every cycle so the keyframe restarts even if the same face repeats.
-  const [beat, setBeat] = useState(0);
-  // Rotation for the current beat, re-randomised each time.
-  const [spin, setSpin] = useState({ axis: 0, tilt: 0 });
-  const timer = useRef(null);
+  /**
+   * Whole turns accumulated so far.
+   *
+   * The settle always rotates FORWARD from wherever the tumble left off — it
+   * adds a multiple of 360 to the target angle. Without this the die would
+   * visibly spin backwards to reach the same face, which reads as the die
+   * changing its mind about the result.
+   */
+  const turns = useRef(0);
+  const [settle, setSettle] = useState(null);
 
   useEffect(() => {
-    if (!rolling) {
-      clearInterval(timer.current);
-      return undefined;
+    if (rolling) {
+      // Each roll winds the die on a few more whole turns than the last, so
+      // consecutive rolls never settle from the same angle.
+      turns.current += 3 + Math.floor(Math.random() * 3);
+      setSettle(null);
+      return;
     }
-    const step = () => {
-      setFace((prev) => {
-        let next = prev;
-        while (next === prev) next = 1 + Math.floor(Math.random() * 6);
-        return next;
-      });
-      setBeat((b) => b + 1);
-      // A fresh axis per beat: the die appears to tumble end over end rather
-      // than shake side to side.
-      setSpin({
-        axis: 180 + Math.floor(Math.random() * 180),
-        tilt: -40 + Math.floor(Math.random() * 80),
-      });
-    };
-    step();
-    timer.current = setInterval(step, CYCLE_MS);
-    return () => clearInterval(timer.current);
-  }, [rolling]);
+    if (!value || !FACE_ROTATION[value]) return;
 
-  // The authoritative write. Once the animator leaves the rolling phase, the
-  // face IS the server's number — this is the only place a result is shown.
-  useEffect(() => {
-    if (!rolling && value) setFace(value);
+    const target = FACE_ROTATION[value];
+    setSettle({
+      x: turns.current * 360 + target.x,
+      y: turns.current * 360 + target.y,
+    });
   }, [rolling, value]);
-
-  const shown = rolling ? face : (value ?? face);
-  const { axis, tilt } = spin;
 
   const label = rolling
     ? 'Rolling'
@@ -129,17 +122,21 @@ export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
         aria-live="polite"
       >
         <span className="die-btn__glow" aria-hidden="true" />
-        {/* Keyed on the face so each change restarts the tumble keyframes,
-            giving the motion without any transition to interrupt. The random
-            per-face axis makes consecutive beats rotate differently, which is
-            what stops the tumble reading as one flat wobble. */}
-        <span className="die__stage-wrap">
+        <span className="die__stage">
           <span
-            className="die__body"
-            key={rolling ? `r${beat}` : `s${shown}`}
-            style={rolling ? { '--spin': `${axis}deg`, '--tilt': `${tilt}deg` } : undefined}
+            className="die"
+            style={
+              settle
+                ? { transform: `rotateX(${settle.x}deg) rotateY(${settle.y}deg)` }
+                : undefined
+            }
           >
-            <Face value={shown} />
+            <Face value={1} className="die__face--front" />
+            <Face value={6} className="die__face--back" />
+            <Face value={5} className="die__face--right" />
+            <Face value={2} className="die__face--left" />
+            <Face value={3} className="die__face--top" />
+            <Face value={4} className="die__face--bottom" />
           </span>
         </span>
       </button>

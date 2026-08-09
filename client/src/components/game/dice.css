@@ -11,6 +11,8 @@
   place-items: center;
   width: var(--die-size, 74px);
   height: var(--die-size, 74px);
+  /* Half the cube edge: the faces are 72% of the button, so half of that. */
+  --half: calc(var(--die-size, 74px) * 0.36);
   border-radius: var(--radius);
   transition: transform var(--dur) var(--ease-spring), opacity var(--dur) var(--ease);
 }
@@ -43,70 +45,51 @@
   animation: glow-pulse 1.7s var(--ease) infinite;
 }
 
-/* -------------------------------------------------------------------- die --
+/* ------------------------------------------------------------------- cube */
 
-   A single flat face. No cube, no perspective, no transition on the outcome:
-   the face is re-rendered (and re-keyed) every time the number changes, so the
-   motion below is pure keyframes that restart from zero each frame. Nothing
-   can be interrupted mid-flight, which is what previously made the die appear
-   to stall on one number and then jump to the result.                       */
-
-.die__stage-wrap {
+.die__stage {
   width: 100%;
   height: 100%;
+  /* Depth. Lower values exaggerate the perspective, which makes a small die
+     read as solid rather than as a rotating flat square. */
+  perspective: 340px;
   display: grid;
   place-items: center;
-  /* Gives the rotations below real depth, so a beat that spins on X reads as
-     the die pitching away from you rather than squashing flat. */
-  perspective: 520px;
 }
 
-.die__body {
+.die {
   position: relative;
-  width: 76%;
-  height: 76%;
-  border-radius: 22%;
+  width: 72%;
+  height: 72%;
   transform-style: preserve-3d;
-  background: linear-gradient(150deg, #ffffff 0%, #eef1fb 55%, #dae0f2 100%);
-  border: 1px solid rgb(160 170 205 / 0.55);
-  box-shadow:
-    inset 0 -3px 7px rgb(0 0 0 / 0.18),
-    inset 0 2px 5px rgb(255 255 255 / 0.95),
-    0 3px 8px rgb(10 13 28 / 0.28);
-  display: grid;
-  place-items: center;
+  /* Resting pose: turned slightly off-axis so three faces catch the light and
+     the shape reads as a cube even while still. */
+  transform: rotateX(-24deg) rotateY(22deg);
 }
 
-/* Each face change restarts this. The beat pitches the die through a full
-   half-turn on X (so it visibly rolls end over end) while yawing by a random
-   amount on Y — the two together read as a real tumble rather than a wobble.
-   `--spin` / `--tilt` are set per beat from JS. Duration matches CYCLE_MS. */
-.die-btn--rolling .die__body {
-  animation: die-tumble 55ms linear;
+/**
+ * The tumble and the settle are mutually exclusive.
+ *
+ * `--rolling` runs a keyframe animation and has NO transition; `--settled`
+ * runs a transition and has NO animation. Letting both touch `transform` at
+ * once is what previously made the die stall mid-spin and then jump.
+ */
+.die-btn--rolling .die {
+  animation: die-tumble 620ms linear infinite;
+  transition: none;
 }
 
 @keyframes die-tumble {
-  0% {
-    transform: rotateX(0deg) rotateY(0deg) rotateZ(calc(var(--tilt, 0deg) * -0.3)) scale(0.94);
-  }
-  60% {
-    transform: rotateX(calc(var(--spin, 220deg) * 0.6)) rotateY(calc(var(--tilt, 0deg) * 0.8))
-      rotateZ(calc(var(--tilt, 0deg) * 0.2)) scale(1.06);
-  }
-  100% {
-    transform: rotateX(var(--spin, 220deg)) rotateY(var(--tilt, 0deg)) rotateZ(0deg) scale(1);
-  }
+  0%   { transform: rotateX(0deg)   rotateY(0deg)   rotateZ(0deg); }
+  100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); }
 }
 
-/* The landing. Plays once, when the number stops changing. */
-.die-btn--settled .die__body {
-  animation: die-land 320ms var(--ease-bounce, cubic-bezier(0.34, 1.56, 0.64, 1));
-}
-
-@keyframes die-land {
-  0%   { transform: scale(1.22) rotate(5deg); }
-  60%  { transform: scale(0.94) rotate(-2deg); }
-  100% { transform: scale(1) rotate(0deg); }
+/* The landing. Overshoots slightly and eases back, so the die settles with
+   weight instead of stopping dead. Kept just under the animator's hold so the
+   face is at rest before the token starts walking. */
+.die-btn--settled .die {
+  animation: none;
+  transition: transform 520ms cubic-bezier(0.18, 0.89, 0.28, 1.12);
 }
 
 .die__face {
@@ -119,7 +102,27 @@
   grid-template-rows: repeat(3, 1fr);
   place-items: center;
   padding: 15%;
+  border-radius: 20%;
+  background: linear-gradient(150deg, #ffffff 0%, #eef1fb 55%, #dae0f2 100%);
+  box-shadow:
+    inset 0 -3px 7px rgb(0 0 0 / 0.18),
+    inset 0 2px 5px rgb(255 255 255 / 0.95);
+  /* Opaque and back-face-culled so only the face pointing at the camera is
+     ever visible — without this two faces bleed together mid-tumble and the
+     die appears to show two numbers at once. */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border: 1px solid rgb(160 170 205 / 0.55);
 }
+
+/* --half is the cube's half-edge; each face is pushed out along one axis.
+   Front/back and left/right and top/bottom are opposite pairs summing to 7. */
+.die__face--front  { transform: translateZ(var(--half, 26px)); }
+.die__face--back   { transform: rotateY(180deg) translateZ(var(--half, 26px)); }
+.die__face--right  { transform: rotateY(90deg)  translateZ(var(--half, 26px)); }
+.die__face--left   { transform: rotateY(-90deg) translateZ(var(--half, 26px)); }
+.die__face--top    { transform: rotateX(90deg)  translateZ(var(--half, 26px)); }
+.die__face--bottom { transform: rotateX(-90deg) translateZ(var(--half, 26px)); }
 
 .die__pip {
   width: 74%;
@@ -143,7 +146,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .die-btn--ready,
-  .die-btn--rolling .die__body,
-  .die-btn--settled .die__body { animation: none; }
+  .die-btn--ready { animation: none; }
+  .die-btn--rolling .die { animation-duration: 1.6s; }
+  .die-btn--settled .die { transition-duration: 200ms; }
 }

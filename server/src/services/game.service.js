@@ -186,6 +186,8 @@ export function startGame({ roomId, members, settings = {} }) {
       STACKING_ENABLED: settings.stackingEnabled ?? GAME_CONFIG.STACKING_ENABLED,
       SAFE_CELLS_ENABLED: settings.safeCellsEnabled ?? GAME_CONFIG.SAFE_CELLS_ENABLED,
       BLOCKING_ENABLED: settings.blockingEnabled ?? GAME_CONFIG.BLOCKING_ENABLED,
+      RELEASE_ON_ANY_ROLL_WHEN_STUCK:
+        settings.releaseOnAnyRollWhenStuck ?? GAME_CONFIG.RELEASE_ON_ANY_ROLL_WHEN_STUCK,
     };
 
     const state = engine.createInitialState({ players: seated, config, now: Date.now() });

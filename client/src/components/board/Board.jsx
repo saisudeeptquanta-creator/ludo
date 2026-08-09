@@ -290,8 +290,10 @@ export function Board({ game, movableTokens = [], onTokenClick, animating, captu
           count = 0;
         } else if (group.length > 1) {
           const a = (i / group.length) * Math.PI * 2 - Math.PI / 2;
-          x += Math.cos(a) * 0.16;
-          y += Math.sin(a) * 0.16;
+          // Fan radius scales with the piece: bigger tokens need to sit
+          // further apart or a stack merges into one blob.
+          x += Math.cos(a) * 0.2;
+          y += Math.sin(a) * 0.2;
         }
 
         out.push({
@@ -371,7 +373,11 @@ export function Board({ game, movableTokens = [], onTokenClick, animating, captu
                   x={t.x}
                   y={t.y}
                   color={t.color}
-                  size={t.inYard ? 0.76 : 0.88}
+                  // In board units, where 1 is a full square. A track token is
+                  // just under a square so adjacent pieces still read as
+                  // separate; a yard token is slightly smaller because four of
+                  // them share one pocket.
+                  size={t.inYard ? 0.92 : 1.04}
                   movable={movable}
                   dimmed={isYourTurn && yours && movableTokens.length > 0 && !movable}
                   walking={walking}
