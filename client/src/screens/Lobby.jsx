@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useRoom, useSession } from '../store/game.js';
 import { loadProfile } from '../lib/device.js';
-import { Avatar, Button, Chip, Sheet, cx } from '../components/ui/index.jsx';
+import { Avatar, Button, Chip, Sheet, FullscreenButton, cx } from '../components/ui/index.jsx';
 import './lobby.css';
 
 const COLOR_NAME = { RED: 'Red', GREEN: 'Green', YELLOW: 'Yellow', BLUE: 'Blue' };
@@ -77,13 +77,14 @@ export default function Lobby({ onLeave }) {
           ←
         </button>
         <h2>Game Room</h2>
-        {isHost ? (
-          <button className="lobby__back" onClick={() => setSettingsOpen(true)} aria-label="Rules">
-            ⚙️
-          </button>
-        ) : (
-          <span style={{ width: 44 }} />
-        )}
+        <div className="lobby__top-actions">
+          <FullscreenButton />
+          {isHost && (
+            <button className="lobby__back" onClick={() => setSettingsOpen(true)} aria-label="Rules">
+              ⚙️
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="lobby__body" data-scroll>

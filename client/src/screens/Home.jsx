@@ -6,8 +6,9 @@ import { useEffect, useState } from 'react';
 import { loadProfile, saveProfile } from '../lib/device.js';
 import { connectSocket, getStatus, onStatus, reconnectWithProfile } from '../lib/socket.js';
 import { useRoom, useSession } from '../store/game.js';
-import { Avatar, Button, AVATAR_COUNT, Sheet, cx } from '../components/ui/index.jsx';
-import { isFullscreenSupported, toggleFullscreen } from '../lib/fullscreen.js';
+import {
+  Avatar, Button, AVATAR_COUNT, Sheet, FullscreenButton, cx,
+} from '../components/ui/index.jsx';
 import { getAudioPrefs, setAudioPrefs, sfx } from '../lib/audio.js';
 import './home.css';
 
@@ -93,15 +94,7 @@ export default function Home({ onEnterLobby }) {
           <span className="home__status-dot" />
           {status === 'connected' ? 'Online' : status === 'connecting' ? 'Connecting' : 'Offline'}
         </span>
-        {isFullscreenSupported() && (
-          <button
-            className="home__icon"
-            onClick={() => toggleFullscreen()}
-            aria-label="Toggle fullscreen"
-          >
-            ⛶
-          </button>
-        )}
+        <FullscreenButton className="home__icon" />
       </header>
 
       <div className="home__body" data-scroll>
@@ -257,12 +250,7 @@ export default function Home({ onEnterLobby }) {
             <span>🎵 Background music</span>
             <span className={cx('home__switch', audio.musicEnabled && 'is-on')} />
           </button>
-          {isFullscreenSupported() && (
-            <button className="home__toggle" onClick={() => toggleFullscreen()}>
-              <span>⛶ Fullscreen</span>
-              <span className="subtle">Tap to toggle</span>
-            </button>
-          )}
+          <FullscreenButton variant="row" className="home__toggle" />
         </div>
       </Sheet>
     </div>

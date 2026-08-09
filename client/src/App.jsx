@@ -11,7 +11,8 @@ import { installViewportFix, requestWakeLock } from './lib/fullscreen.js';
 import { hasProfile } from './lib/device.js';
 import { useGame, useRoom, useSession } from './store/game.js';
 import { sfx, unlock } from './lib/audio.js';
-import { GameBackground, LoadingScreen } from './components/ui/index.jsx';
+import { GameBackground, LoadingScreen, FullscreenButton } from './components/ui/index.jsx';
+import { FullscreenPrompt } from './components/ui/FullscreenPrompt.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import Home from './screens/Home.jsx';
 import Lobby from './screens/Lobby.jsx';
@@ -148,11 +149,22 @@ export default function App() {
     <ErrorBoundary onReset={goHome}>
       <GameBackground />
 
+      {/* Offered once per tab, over whatever screen is showing. Fullscreen
+          needs a real tap to be granted, so it cannot be done automatically. */}
+      <FullscreenPrompt />
+
       {screen === 'booting' && <LoadingScreen message="Connecting…" />}
       {screen === 'home' && <Home onEnterLobby={() => setScreen('lobby')} />}
       {screen === 'lobby' && room && <Lobby onLeave={goHome} />}
       {screen === 'countdown' && <Countdown />}
       {screen === 'game' && <GameScreen onExit={goHome} />}
+
+      {/* Screens without a header of their own (booting, countdown) still need
+          the toggle, so it floats over them. The screens that DO have a header
+          place it there instead, which is why those are excluded here. */}
+      {(screen === 'booting' || screen === 'countdown') && (
+        <FullscreenButton className="fs-btn--floating" />
+      )}
 
       {/* A room that vanished under us (host closed it) falls back home. */}
       {screen === 'lobby' && !room && <Home onEnterLobby={() => setScreen('lobby')} />}

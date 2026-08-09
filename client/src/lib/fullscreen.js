@@ -83,7 +83,17 @@ export function installViewportFix() {
     'touchend',
     (e) => {
       const now = Date.now();
-      if (now - lastTouch < 300) e.preventDefault();
+      /**
+       * Never swallow a tap on an actual control.
+       *
+       * `preventDefault()` here also cancels the synthetic click the browser
+       * would have fired, so a quick second tap on a button did nothing at all.
+       * That matters most for the fullscreen prompt: the API only grants the
+       * request from inside a genuine gesture, so a suppressed click means the
+       * button silently fails. Zoom is only worth blocking on inert areas.
+       */
+      const onControl = e.target.closest?.('button, a, input, select, textarea, [role="button"]');
+      if (!onControl && now - lastTouch < 300) e.preventDefault();
       lastTouch = now;
     },
     { passive: false },

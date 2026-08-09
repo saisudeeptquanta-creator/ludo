@@ -16,7 +16,9 @@ import { Dice } from '../components/game/Dice.jsx';
 import { SeatCard } from '../components/game/SeatCard.jsx';
 import { GameResult } from '../components/game/GameResult.jsx';
 import { useGameAnimator, abortReplay } from '../components/game/useGameAnimator.js';
-import { Button, Sheet, LoadingScreen, Confetti, cx } from '../components/ui/index.jsx';
+import {
+  Button, Sheet, LoadingScreen, Confetti, FullscreenButton, cx,
+} from '../components/ui/index.jsx';
 import './game-screen.css';
 
 const EMOTES = ['😂', '🔥', '😎', '👏', '😱', '🎉', '😡', '👍'];
@@ -265,9 +267,12 @@ export default function GameScreen({ onExit }) {
           <span className={cx('gs__turn-text', isYourTurn && 'is-you')}>{turnText}</span>
           <span className="gs__turn-sub">Turn {game.turnNumber}</span>
         </div>
-        <button className="gs__icon" onClick={() => setEmoteOpen(true)} aria-label="Send emote">
-          😀
-        </button>
+        <div className="gs__head-actions">
+          <FullscreenButton />
+          <button className="gs__icon" onClick={() => setEmoteOpen(true)} aria-label="Send emote">
+            😀
+          </button>
+        </div>
       </header>
 
       {/* ------------------------------------------- board + corner seats */}
@@ -444,6 +449,7 @@ export default function GameScreen({ onExit }) {
           </>
         }
       >
+        <FullscreenButton variant="row" />
         <p className="gs__menu-note">
           Leaving removes your tokens from the board and the others carry on without you.
         </p>

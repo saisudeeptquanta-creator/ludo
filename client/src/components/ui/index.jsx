@@ -3,9 +3,14 @@
  * slide from the bottom, and avatars generated from a name so the app ships no
  * image assets.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { sfx } from '../../lib/audio.js';
+import {
+  isFullscreen,
+  isFullscreenSupported,
+  toggleFullscreen,
+} from '../../lib/fullscreen.js';
 import './ui.css';
 
 export const cx = (...parts) => parts.filter(Boolean).join(' ');
@@ -131,6 +136,67 @@ export function Sheet({ open, onClose, title, children, footer, dismissible = tr
 }
 
 /* ------------------------------------------------------------- feedback --- */
+
+/**
+ * Live fullscreen state.
+ *
+ * Read from the document rather than tracked locally: the user can leave
+ * fullscreen with Esc or a system gesture without ever touching our button, and
+ * a local boolean would then disagree with the screen. `fullscreenchange` is
+ * the only source of truth.
+ */
+export function useIsFullscreen() {
+  const [full, setFull] = useState(isFullscreen);
+
+  useEffect(() => {
+    const sync = () => setFull(isFullscreen());
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    sync();
+    return () => {
+      document.removeEventListener('fullscreenchange', sync);
+      document.removeEventListener('webkitfullscreenchange', sync);
+    };
+  }, []);
+
+  return full;
+}
+
+/**
+ * Fullscreen toggle, used on every screen.
+ *
+ * Renders nothing where the browser cannot grant fullscreen — notably iOS
+ * Safari, which supports it for video only. A button that silently does nothing
+ * is worse than no button, and the viewport fix in `installViewportFix` already
+ * gives those browsers a full-bleed layout without it.
+ */
+export function FullscreenButton({ className, variant = 'icon' }) {
+  const full = useIsFullscreen();
+  if (!isFullscreenSupported()) return null;
+
+  const label = full ? 'Exit fullscreen' : 'Enter fullscreen';
+
+  if (variant === 'row') {
+    return (
+      <button className={cx('fs-row', className)} onClick={() => toggleFullscreen()}>
+        <span>⛶ Fullscreen</span>
+        <span className="subtle">{full ? 'On — tap to exit' : 'Tap to toggle'}</span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      className={cx('fs-btn', className)}
+      onClick={() => toggleFullscreen()}
+      aria-label={label}
+      title={label}
+      aria-pressed={full}
+    >
+      {full ? '⤡' : '⛶'}
+    </button>
+  );
+}
 
 export function Spinner({ size = 22 }) {
   return <span className="spinner" style={{ '--s': `${size}px` }} role="status" aria-label="Loading" />;

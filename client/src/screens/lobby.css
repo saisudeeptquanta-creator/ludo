@@ -209,3 +209,12 @@
   height: 30px;
   margin-bottom: var(--space-4);
 }
+
+/* Right-hand header controls. Grouped so the title stays centred whether or
+   not the settings gear is present (only the host sees it). */
+.lobby__top-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}

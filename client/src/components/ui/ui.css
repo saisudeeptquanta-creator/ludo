@@ -304,3 +304,54 @@
   90% { opacity: 1; }
   100% { transform: translateY(-118dvh) rotate(340deg); opacity: 0; }
 }
+
+/* ------------------------------------------------------------ fullscreen */
+
+/* The compact toggle that sits in a screen's header. Sized to the 44px
+   minimum touch target even though the glyph itself is small. */
+.fs-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: transform var(--dur-fast) var(--ease-spring),
+    background var(--dur-fast) var(--ease);
+}
+.fs-btn:hover { background: rgb(255 255 255 / 0.12); }
+.fs-btn:active { transform: scale(0.9); }
+
+/* The wide variant, for settings sheets and menus. */
+.fs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
+  min-height: 58px;
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+.fs-row:active { transform: scale(0.98); }
+
+/* Floating variant, for screens that have no header to host the button. */
+.fs-btn--floating {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + var(--space-3));
+  right: var(--space-3);
+  z-index: var(--z-overlay);
+  background: rgb(10 14 28 / 0.6);
+  backdrop-filter: blur(6px);
+}
