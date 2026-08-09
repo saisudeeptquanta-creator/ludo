@@ -2,38 +2,40 @@
  * Replays the server's event stream as visible motion.
  *
  * ===========================================================================
- * How this works, and why it is built this way
+ * How this works
  * ===========================================================================
  *
- * The server emits events in BATCHES, and a roll and the move it causes land in
- * SEPARATE batches — the roll is sent when you tap, the move only once you pick
- * a token. Observed from the live server:
+ * A move is shown by walking `event.path` — one hop per entry — and the die
+ * beside it is `event.dice`, BOTH read off the same event object at the same
+ * instant. Nothing else writes either one, so the number of squares travelled
+ * cannot disagree with the number on the die.
  *
- *     batch n   : ROLL(seat1)=6
- *     batch n+1 : MOVE(seat1) dice=6 len=1 (-1 -> 0) | EXTRA_TURN | TURN_STARTED
- *     batch n+2 : ROLL(seat1)=4
- *     batch n+3 : MOVE(seat1) dice=4 len=4 (0 -> 4) | TURN_STARTED
+ * ---------------------------------------------------------------------------
+ * Motion
+ * ---------------------------------------------------------------------------
  *
- * Two consequences drive the whole design:
+ * Each hop is driven by requestAnimationFrame, not by a `setTimeout` writing a
+ * position that a CSS transition then chases. The walker publishes a
+ * FRACTIONAL progress (`from` -> `to`, eased) on every frame, and the board
+ * draws exactly where it is told.
  *
- *  1. Events must be replayed as ONE continuous ordered stream. Treating each
- *     batch independently, or pairing a roll with a move inside a batch, gets
- *     the wrong dice against the wrong move.
+ * This is the important difference from the previous approach. There, the step
+ * timer and the CSS transition were two independent clocks, and whenever the
+ * transition outlasted the step it was cut off mid-slide — the piece skipped
+ * squares and arrived early, which is what made the travelled count look wrong.
+ * With one clock there is nothing to fall behind: the hop is finished before
+ * the next one is started, always.
  *
- *  2. A six grants an extra turn, so a NEW roll can arrive while the previous
- *     move is still animating. The die must therefore be driven by the event
- *     being replayed — never by the latest snapshot, and never by the roll
- *     acknowledgement, both of which run ahead of the animation.
+ * The token also arcs upward across each hop, so a move reads as a sequence of
+ * distinct jumps you can count, rather than one continuous slide.
  *
- * The invariants this module guarantees:
+ * ---------------------------------------------------------------------------
+ * Concurrency
+ * ---------------------------------------------------------------------------
  *
- *  - Exactly one drain loop exists, process-wide. React StrictMode and remounts
- *    cannot create a second one (a per-component guard previously allowed two
- *    loops to walk the same token, doubling every move).
- *  - Events are consumed strictly in order, one at a time.
- *  - A token walks exactly `event.path` — never `event.dice`. They differ for a
- *    release, which costs a six but is a single hop out of the yard.
- *  - The die face shown during a move is the dice of THAT move.
+ * Exactly one replay runs process-wide. `runToken` is bumped whenever the board
+ * resets; any in-flight replay holding a stale token exits at its next
+ * checkpoint, so a reset can never leave a ghost walker behind.
  */
 import { useEffect } from 'react';
 import { useGame } from '../../store/game.js';
@@ -41,149 +43,180 @@ import { sfx } from '../../lib/audio.js';
 
 /* --------------------------------------------------------------- timings -- */
 
-const TIMING = {
-  /**
-   * Per square walked.
-   *
-   * Must be >= the `.tk` CSS transform transition (90ms) so each square's slide
-   * COMPLETES before the next is written. When the step is shorter than the
-   * transition, squares get skipped visually and the token appears to travel a
-   * different number of squares than the die shows.
-   */
-  step: 95,
-  /** Quicker on long moves (a six, or a bounce off the centre) so it does not drag. */
-  stepLong: 70,
-  longMoveThreshold: 4,
-  /** Beat on the origin square before the first hop, so it is visible. */
-  liftOff: 40,
-  /** Settle after the final square. */
-  land: 90,
-  /** Tumble shown for another player's roll (ours is already tumbling). */
-  tumble: 620,
-  /** Beat after the die settles, before the move plays. */
-  afterRoll: 380,
-  capture: 380,
-  finish: 300,
-  extraTurn: 160,
-  notice: 240,
-};
+/** Duration of a single hop, square to square. Slow enough to count. */
+const HOP_MS = 190;
+/** Hop duration once a path is long, so a six does not drag. */
+const HOP_FAST_MS = 150;
+const LONG_PATH = 5;
+/** Beat between hops — the pause is what makes them read as separate jumps. */
+const HOP_GAP_MS = 45;
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/** How long the die visibly tumbles before showing its value. */
+const DICE_SPIN_MS = 700;
+/** How long the settled value is held before the token starts moving. */
+const DICE_HOLD_MS = 380;
 
-/* ------------------------------------------------ single-drainer control -- */
+const LAND_MS = 200;
+const CAPTURE_MS = 420;
+const FINISH_MS = 340;
+const NOTICE_MS = 300;
 
-/** True while the drain loop is running. Module scope: exactly one loop ever. */
-let draining = false;
-/** Number of mounted animators; the loop stops when this reaches zero. */
-let liveCount = 0;
-/** The one store subscription, owned by whichever animator mounted first. */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ----------------------------------------------------------------- state -- */
+
+let running = false;
+let mounted = 0;
 let unsubscribe = null;
+/** Bumped on reset; a replay whose token is stale aborts. */
+let runToken = 0;
 
-/* ------------------------------------------------------------ the replay -- */
+const alive = (token) => token === runToken && mounted > 0;
+
+/* ------------------------------------------------------------------ hop -- */
+
+/** Ease-in-out: the token leaves and arrives gently, sprints in between. */
+const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 /**
- * Walks one token along the path the server sent.
+ * Animates one square-to-square hop and resolves when it has fully landed.
  *
- * `path` is authoritative and self-contained: it lists every square the token
- * passes through, ending on the destination. Its length equals the dice value
- * for a normal move, and is 1 for a release. Following it — rather than
- * counting out `dice` squares — is what makes both cases correct.
+ * Resolving only at the end is what serialises the walk: the caller cannot
+ * start the next hop while this one is still in the air, so no hop is ever
+ * truncated and the piece lands on every square it is supposed to touch.
  */
-async function playMove(event) {
+function hop(base, from, to, duration, token) {
+  return new Promise((resolve) => {
+    const start = performance.now();
+
+    const frame = (now) => {
+      if (!alive(token)) {
+        resolve();
+        return;
+      }
+      const t = Math.min(1, (now - start) / duration);
+      const e = ease(t);
+
+      useGame.getState().setWalking({
+        ...base,
+        // Whole square the token belongs to — what the board resolves to a cell.
+        progress: to,
+        // Fractional position for drawing: the board interpolates `from`->`to`.
+        fromProgress: from,
+        hopT: e,
+        // A half-sine arc: zero at both ends, highest at the midpoint.
+        lift: Math.sin(Math.PI * t),
+      });
+
+      if (t < 1) requestAnimationFrame(frame);
+      else resolve();
+    };
+
+    requestAnimationFrame(frame);
+  });
+}
+
+/**
+ * Walks one token along `event.path`.
+ *
+ * `path` is authoritative and complete: it lists every square the token passes
+ * through, ending on the destination. Its length always equals the number of
+ * squares the move is worth — 1 for a release out of the yard, and for a bounce
+ * off the centre it already includes the squares walked back down. The walk
+ * follows `path` and never re-derives a count from the dice.
+ */
+async function walk(event, token) {
   const path = event.path ?? [];
   if (path.length === 0) return;
 
-  const token = {
+  const duration = path.length >= LONG_PATH ? HOP_FAST_MS : HOP_MS;
+  const base = {
     seat: event.seat,
     tokenIndex: event.tokenIndex,
     color: event.color,
+    // The die travels WITH the walker, so whatever is on screen beside the
+    // piece is by construction the value this move was made with.
+    dice: event.dice ?? null,
   };
-  const store = useGame.getState();
-  const isRelease = event.from < 0;
-  // A bounce off the centre walks up and back, so the path can be ~11 squares.
-  // Tighten the step on long paths so the move still lands promptly.
-  const step = path.length > TIMING.longMoveThreshold ? TIMING.stepLong : TIMING.step;
 
-  // Show the token on its origin first so the first hop reads as movement.
-  // A release has no origin square — it simply appears on the entry square.
-  if (!isRelease) {
-    store.setWalking({ ...token, progress: event.from, hop: -1 });
-    await sleep(TIMING.liftOff);
-  }
+  // A release out of the yard has no origin square to leave from; it hops in
+  // place onto the entry square.
+  let cursor = event.from >= 0 ? event.from : path[0];
+
+  useGame.getState().setWalking({ ...base, progress: cursor, fromProgress: cursor, hopT: 1, lift: 0 });
+  await sleep(60);
+  if (!alive(token)) return;
 
   for (let i = 0; i < path.length; i += 1) {
-    if (liveCount === 0) return;
-    // `hop` re-keys the arc animation so every square gets its own hop.
-    useGame.getState().setWalking({ ...token, progress: path[i], hop: i });
+    if (!alive(token)) return;
     sfx.tokenStep(i);
-    await sleep(step);
+    await hop(base, cursor, path[i], duration, token);
+    cursor = path[i];
+    if (i < path.length - 1) await sleep(HOP_GAP_MS);
   }
 
-  // Hold the landing pose so the arrival has weight.
+  if (!alive(token)) return;
   useGame.getState().setWalking({
-    ...token,
-    progress: path[path.length - 1],
-    hop: path.length,
+    ...base,
+    progress: cursor,
+    fromProgress: cursor,
+    hopT: 1,
+    lift: 0,
     landed: true,
   });
-  await sleep(TIMING.land);
-  useGame.getState().setWalking(null);
+  await sleep(LAND_MS);
 }
 
-/** Settles the die on the value of the roll being replayed. */
-async function playRoll(event, mySeat, fast) {
-  const mine = event.seat === mySeat;
+/* ------------------------------------------------------------------ roll -- */
 
-  if (mine) {
-    // Our own die is already tumbling from the optimistic roll(); let it spin
-    // a beat longer, then land it on the server's value.
-    if (!fast) await sleep(TIMING.afterRoll);
-  } else {
-    useGame.getState().setDice({ value: event.value, phase: 'rolling' });
-    sfx.diceRoll();
-    if (!fast) await sleep(TIMING.tumble);
-  }
+/**
+ * Shows the die tumbling, then settles it on the value being replayed.
+ *
+ * Both the roller and the watchers get the same visible tumble. Previously the
+ * roller skipped it — the store had already started spinning on tap — which
+ * made the die look like it stopped early and then changed its mind.
+ */
+async function showRoll(event, token) {
+  useGame.getState().setDice({ value: null, phase: 'rolling' });
+  sfx.diceRoll();
+  await sleep(DICE_SPIN_MS);
+  if (!alive(token)) return;
 
   useGame.getState().setDice({ value: event.value, phase: 'result' });
   sfx.diceResult(event.value);
-  // Lets the 480ms settle land and read before the token starts walking.
-  if (!fast) await sleep(500);
+  await sleep(DICE_HOLD_MS);
 }
 
-/**
- * Consumes the queue strictly in order until it is empty.
- *
- * Only one instance of this runs at a time; `draining` is module scope so no
- * amount of mounting can start a second.
- */
-async function drain() {
-  if (draining) return;
-  draining = true;
-  // Claim the die for the whole replay so snapshots cannot overwrite the face
-  // while the move it belongs to is still walking.
+/* ---------------------------------------------------------------- replay -- */
+
+async function replay() {
+  if (running) return;
+  running = true;
+  const token = runToken;
   useGame.getState().setAnimating(true);
 
   try {
-    while (liveCount > 0) {
+    while (alive(token)) {
       const event = useGame.getState().shift();
       if (!event) break;
 
-      // A long backlog means we are catching up (reconnect, backgrounded tab).
-      // Skip the theatre and converge on the truth.
-      const fast = useGame.getState().queue.length > 10;
+      // A deep backlog means we are catching up after a reconnect or a
+      // backgrounded tab. Skip the theatre and converge on the truth.
+      const catchUp = useGame.getState().queue.length > 8;
       const mySeat = useGame.getState().game?.you?.seat;
 
       switch (event.type) {
         case 'DICE_ROLLED':
-          await playRoll(event, mySeat, fast);
+          if (catchUp) useGame.getState().setDice({ value: event.value, phase: 'result' });
+          else await showRoll(event, token);
           break;
 
         case 'TOKEN_MOVED':
-          if (fast) useGame.getState().setWalking(null);
-          else await playMove(event);
+          if (catchUp) useGame.getState().setWalking(null);
+          else await walk(event, token);
           break;
 
-        case 'TOKEN_CAPTURED': {
+        case 'TOKEN_CAPTURED':
           useGame.getState().setCaptured([{ seat: event.seat, tokenIndex: event.tokenIndex }]);
           if (event.bySeat === mySeat) {
             sfx.capture();
@@ -194,15 +227,14 @@ async function drain() {
           } else {
             sfx.capture();
           }
-          if (!fast) await sleep(TIMING.capture);
+          if (!catchUp) await sleep(CAPTURE_MS);
           useGame.getState().setCaptured([]);
           break;
-        }
 
         case 'PLAYER_FINISHED':
           sfx.tokenHome();
           if (event.seat === mySeat) useGame.getState().flashBanner('ALL HOME!');
-          if (!fast) await sleep(TIMING.finish);
+          if (!catchUp) await sleep(FINISH_MS);
           break;
 
         case 'EXTRA_TURN':
@@ -212,12 +244,12 @@ async function drain() {
               .getState()
               .flashBanner(event.reason === 'six' ? 'ROLL AGAIN!' : 'EXTRA TURN!');
           }
-          if (!fast) await sleep(TIMING.extraTurn);
+          if (!catchUp) await sleep(NOTICE_MS);
           break;
 
         case 'NO_LEGAL_MOVE':
           if (event.seat === mySeat) useGame.getState().flashBanner('NO MOVES');
-          if (!fast) await sleep(TIMING.notice);
+          if (!catchUp) await sleep(NOTICE_MS);
           break;
 
         case 'TURN_FORFEITED':
@@ -226,7 +258,7 @@ async function drain() {
               .getState()
               .flashBanner(event.reason === 'three_sixes' ? 'THREE SIXES!' : 'TIME UP');
           }
-          if (!fast) await sleep(TIMING.notice);
+          if (!catchUp) await sleep(NOTICE_MS);
           break;
 
         default:
@@ -234,32 +266,44 @@ async function drain() {
       }
     }
   } finally {
-    draining = false;
-    useGame.getState().setWalking(null);
-    useGame.getState().setAnimating(false);
-    // Everything queued has now been shown, so the die may safely reset if the
-    // turn has moved on. Doing this any earlier races the walk.
-    useGame.getState().clearDice();
+    running = false;
+    if (alive(token)) {
+      // Drop the walker only now: the snapshot already holds the token at its
+      // destination, so the piece stays exactly where the walk left it.
+      useGame.getState().setWalking(null);
+      useGame.getState().setAnimating(false);
+      useGame.getState().clearDice();
+    }
+    // Events that arrived while the loop was finishing.
+    if (useGame.getState().queue.length > 0) replay();
   }
 }
 
-/* -------------------------------------------------------------- the hook -- */
+/** Aborts any in-flight replay. Called when the board is torn down. */
+export function abortReplay() {
+  runToken += 1;
+  running = false;
+}
+
+/* ------------------------------------------------------------------ hook -- */
 
 export function useGameAnimator() {
   useEffect(() => {
-    liveCount += 1;
+    mounted += 1;
 
-    // Only the first mount owns the subscription; later mounts share it.
+    // Let a store reset abort a walk in progress (see `reset` in the store).
+    useGame.getState().setResetHook(abortReplay);
+
     if (!unsubscribe) {
-      unsubscribe = useGame.subscribe((state, previous) => {
-        if (state.queue.length && state.queue !== previous.queue) drain();
+      unsubscribe = useGame.subscribe((state, prev) => {
+        if (state.queue.length > 0 && state.queue !== prev.queue) replay();
       });
     }
-    if (useGame.getState().queue.length) drain();
+    if (useGame.getState().queue.length > 0) replay();
 
     return () => {
-      liveCount -= 1;
-      if (liveCount === 0) {
+      mounted -= 1;
+      if (mounted === 0) {
         unsubscribe?.();
         unsubscribe = null;
       }

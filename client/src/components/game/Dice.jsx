@@ -1,30 +1,37 @@
 /**
- * A real 3D die.
+ * The die.
  *
- * Six faces on a CSS cube. Rolling spins it on a random axis; the settle is a
- * fixed rotation per face, so the die always comes to rest showing exactly the
- * value the SERVER chose. The tumbling in between is decoration — the component
- * never invents an outcome.
+ * ===========================================================================
+ * How this works
+ * ===========================================================================
+ *
+ * The die is a flat 2D face that CYCLES through random faces while rolling and
+ * then stops on the server's value. There is no 3D cube and no CSS transition
+ * driving the outcome.
+ *
+ * That is the whole point of this design. A transition-based cube has to be
+ * told "spin now" and later "settle there" as two separate style writes, and
+ * whichever way you sequence them the browser can coalesce the two into one
+ * transition — the die then appears to hang on some arbitrary face and jump
+ * straight to the result without a visible tumble.
+ *
+ * Here the face shown while rolling is just state, advanced on a timer. When
+ * the roll ends we write the real value once. The last frame of the tumble and
+ * the result are rendered by the same code path, so there is nothing to
+ * interrupt and nothing to settle: the number simply stops changing.
  */
 import { useEffect, useRef, useState } from 'react';
 import './dice.css';
 
-/** Rotation that brings each face to the front. */
-const FACE_ROTATION = {
-  1: { x: 0, y: 0 },
-  2: { x: 0, y: -90 },
-  3: { x: -90, y: 0 },
-  4: { x: 90, y: 0 },
-  5: { x: 0, y: 90 },
-  6: { x: 0, y: 180 },
-};
+/** How often the face changes mid-tumble. */
+const CYCLE_MS = 70;
 
 /**
  * Pip positions per face as explicit [column, row] on a 3x3 grid.
  *
  * Placing each pip by coordinate — rather than filling nine cells in order —
- * is what keeps every face perfectly aligned: the grid tracks are fixed, so a
- * face with two pips and a face with six share identical geometry.
+ * keeps every face aligned: the grid tracks are fixed, so a face with two pips
+ * and a face with six share identical geometry.
  */
 const PIPS = {
   1: [[2, 2]],
@@ -35,51 +42,56 @@ const PIPS = {
   6: [[1, 1], [3, 1], [1, 2], [3, 2], [1, 3], [3, 3]],
 };
 
-function Face({ value, className }) {
+function Face({ value }) {
   return (
-    <div className={`die__face ${className}`}>
-      {PIPS[value].map(([col, row], i) => (
+    <span className="die__face">
+      {(PIPS[value] ?? PIPS[1]).map(([col, row], i) => (
         <span key={i} className="die__pip" style={{ gridColumn: col, gridRow: row }} />
       ))}
-    </div>
+    </span>
   );
 }
 
 export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
-  // Accumulated spin, so consecutive rolls keep turning the same direction
-  // instead of snapping backwards between them.
-  const spins = useRef({ x: 0, y: 0 });
-  const [transform, setTransform] = useState('rotateX(-20deg) rotateY(20deg)');
+  const rolling = phase === 'rolling';
+
+  // The face currently painted. While rolling this is decorative noise; the
+  // moment the roll ends it is replaced by the server's value, below.
+  const [face, setFace] = useState(1);
+  const timer = useRef(null);
 
   useEffect(() => {
-    if (phase === 'rolling') {
-      // More rotation over a shorter duration, so the die reads as spinning
-      // FAST rather than merely turning slowly.
-      spins.current = {
-        x: spins.current.x + 1440 + Math.floor(Math.random() * 4) * 90,
-        y: spins.current.y + 1800 + Math.floor(Math.random() * 4) * 90,
-      };
-      setTransform(`rotateX(${spins.current.x}deg) rotateY(${spins.current.y}deg)`);
-      return;
+    if (!rolling) {
+      clearInterval(timer.current);
+      return undefined;
     }
-    if (value && FACE_ROTATION[value]) {
-      const target = FACE_ROTATION[value];
-      // Land on the requested face at the next multiple of 360 past the spin.
-      const x = Math.ceil(spins.current.x / 360) * 360 + target.x;
-      const y = Math.ceil(spins.current.y / 360) * 360 + target.y;
-      spins.current = { x, y };
-      setTransform(`rotateX(${x}deg) rotateY(${y}deg)`);
-    }
-  }, [phase, value]);
+    // Cycle faces, never repeating the one on screen — a repeat reads as the
+    // die having stopped early, which is exactly the stutter being fixed.
+    timer.current = setInterval(() => {
+      setFace((prev) => {
+        let next = prev;
+        while (next === prev) next = 1 + Math.floor(Math.random() * 6);
+        return next;
+      });
+    }, CYCLE_MS);
+    return () => clearInterval(timer.current);
+  }, [rolling]);
 
-  const label =
-    phase === 'rolling'
-      ? 'Rolling'
-      : value
-        ? `Dice shows ${value}`
-        : canRoll
-          ? 'Tap to roll the dice'
-          : 'Dice';
+  // The authoritative write. Once the animator leaves the rolling phase, the
+  // face IS the server's number — this is the only place a result is shown.
+  useEffect(() => {
+    if (!rolling && value) setFace(value);
+  }, [rolling, value]);
+
+  const shown = rolling ? face : (value ?? face);
+
+  const label = rolling
+    ? 'Rolling'
+    : value
+      ? `Dice shows ${value}`
+      : canRoll
+        ? 'Tap to roll the dice'
+        : 'Dice';
 
   return (
     <div className="dice-zone">
@@ -87,7 +99,8 @@ export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
         className={[
           'die-btn',
           canRoll && !disabled && 'die-btn--ready',
-          phase === 'rolling' && 'die-btn--rolling',
+          rolling && 'die-btn--rolling',
+          !rolling && value && 'die-btn--settled',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -97,15 +110,10 @@ export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
         aria-live="polite"
       >
         <span className="die-btn__glow" aria-hidden="true" />
-        <span className="die__stage">
-          <span className="die" style={{ transform }}>
-            <Face value={1} className="die__face--front" />
-            <Face value={6} className="die__face--back" />
-            <Face value={5} className="die__face--right" />
-            <Face value={2} className="die__face--left" />
-            <Face value={3} className="die__face--top" />
-            <Face value={4} className="die__face--bottom" />
-          </span>
+        {/* Keyed on the face so each change restarts the shake/pop keyframes,
+            giving the tumble motion without any transition to interrupt. */}
+        <span className="die__body" key={rolling ? `r${shown}` : `s${shown}`}>
+          <Face value={shown} />
         </span>
       </button>
 

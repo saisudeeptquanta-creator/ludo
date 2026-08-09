@@ -82,11 +82,17 @@ export const useGame = create((set, get) => ({
   /**
    * Applies an authoritative snapshot.
    *
-   * The snapshot deliberately does NOT touch the die. Snapshots arrive as soon
-   * as the server processes an action, which is well ahead of the animation
-   * replaying it — letting a snapshot set the face would show the next turn's
-   * value beside a token still walking the previous move. The die belongs to
-   * the animator alone; see `setDice`.
+   * The snapshot deliberately does NOT touch the die.
+   *
+   * Snapshots arrive as soon as the server processes an action, which is well
+   * ahead of the animator replaying it. A roll and the move it causes arrive in
+   * SEPARATE batches, so there is always a window where the snapshot already
+   * holds the NEXT roll while the previous move is still being walked. Writing
+   * the die here during that window is what made the face disagree with the
+   * number of squares travelled.
+   *
+   * The die is written in exactly two places: `setDice`, called by the animator
+   * from the event being replayed, and `clearDice` when a turn genuinely ends.
    */
   setGame(game) {
     const previous = get().game;
@@ -102,24 +108,14 @@ export const useGame = create((set, get) => ({
       sfx.yourTurn();
       get().flashBanner('YOUR TURN');
     }
-
-    /**
-     * The snapshot never writes the die.
-     *
-     * Rolls and the moves they cause arrive in SEPARATE batches, so there is
-     * always a moment between them where the queue is empty but the previous
-     * move has not been animated yet. Writing the die here during that gap
-     * showed the NEXT roll's value while the token was still walking the
-     * previous one — the observed "die 2, moved 5 / die 5, moved 2" swap.
-     *
-     * `clearDice()` below is the only thing that resets it, and only when a
-     * turn genuinely ends.
-     */
   },
 
-  /** Clears the die between turns, once the animator has finished replaying. */
+  /**
+   * Clears the die between turns, once the animator has finished replaying.
+   * Only the animator calls this, and only when the queue is fully drained.
+   */
   clearDice() {
-    if (get().animating || get().queue.length > 0) return;
+    if (get().queue.length > 0) return;
     const game = get().game;
     if (!game?.diceRolled) set({ dice: { value: null, phase: 'idle' } });
   },
@@ -154,7 +150,18 @@ export const useGame = create((set, get) => ({
     setTimeout(() => set({ emotes: get().emotes.filter((e) => e.id !== id) }), 2400);
   },
 
-  reset: () =>
+  /**
+   * Aborts any in-flight replay before wiping state.
+   *
+   * The animator registers this hook rather than the store importing the
+   * animator, which would be a cycle. Without it a replay mid-walk would keep
+   * writing `walking` after the reset and strand a ghost token on the board.
+   */
+  onReset: null,
+  setResetHook: (fn) => set({ onReset: fn }),
+
+  reset: () => {
+    get().onReset?.();
     set({
       game: null,
       queue: [],
@@ -165,33 +172,31 @@ export const useGame = create((set, get) => ({
       results: null,
       pending: false,
       banner: null,
-    }),
+    });
+  },
 
   // ------------------------------------------------------------- actions --
 
   /**
    * Ask the server to roll.
    *
-   * The ack is NOT used to set the die. Socket.IO delivers the broadcast
-   * (`game:events` + `game:state`) before it resolves this ack, so writing the
-   * ack's value here would land *after* the authoritative snapshot and stamp a
-   * stale face over it — which is what made the die appear one roll behind and
-   * the token look like it moved by the previous count.
+   * This asks and nothing more. The ack's value is deliberately discarded:
+   * Socket.IO delivers the broadcast (`game:events` + `game:state`) BEFORE it
+   * resolves the ack, so writing the ack's value here would land after the
+   * authoritative event and stamp a stale face over it.
    *
-   * The animator settles the die from the DICE_ROLLED event instead. This only
-   * starts the tumble and reports the value for the caller's own use.
+   * It also does NOT start the tumble. The animator owns the die for the whole
+   * roll — spin, settle and clear — from the DICE_ROLLED event. Starting a spin
+   * here as well meant two writers racing over one face: the local spin began
+   * on tap, the animator's began on the event, and the die visibly stalled
+   * between them before snapping to the result.
    */
   async roll() {
     const game = get().game;
     if (!game || get().pending) return null;
-    set({ pending: true, dice: { value: null, phase: 'rolling' } });
-    sfx.diceRoll();
+    set({ pending: true });
     try {
       return await send('game:roll', { gameId: game.id });
-    } catch (err) {
-      // Only on failure do we restore the die ourselves, since no event came.
-      set({ dice: { value: game.diceValue, phase: game.diceValue ? 'result' : 'idle' } });
-      throw err;
     } finally {
       set({ pending: false });
     }
@@ -240,4 +245,5 @@ export const useGame = create((set, get) => ({
  */
 if (typeof window !== 'undefined') {
   window.__ludo = useGame;
+  window.__room = useRoom;
 }

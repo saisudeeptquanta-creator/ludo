@@ -272,6 +272,13 @@ export function applyMove(state, { seat, tokenIndex, now = Date.now(), auto = fa
   player.movesMade += 1;
   player.consecutiveTimeouts = 0;
 
+  /**
+   * `path` and `dice` ride on the SAME event on purpose: the client walks the
+   * path and shows the die from one record, so the squares travelled and the
+   * number on the die cannot drift apart. `path.length` is the authoritative
+   * count — it is 1 for a release out of the yard, and for a bounce off the
+   * centre it already includes the squares walked back down.
+   */
   events.push({
     type: EVENTS.TOKEN_MOVED,
     seat,
@@ -281,6 +288,7 @@ export function applyMove(state, { seat, tokenIndex, now = Date.now(), auto = fa
     to: move.to,
     path: move.path,
     dice: s.diceValue,
+    bounced: move.bounced ?? false,
     auto,
   });
 

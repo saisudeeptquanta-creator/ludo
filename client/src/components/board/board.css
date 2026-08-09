@@ -113,12 +113,19 @@
      enlarged hit areas of idle pieces overlapped and swallowed taps meant for
      the piece you can actually move. */
   pointer-events: none;
-  /* Must be <= the animator's SHORTEST per-square step (stepLong, 70ms) so each
-     square's slide finishes before the next is written. A transition longer
-     than the step gets cut off mid-slide and the piece visibly skips squares,
-     making the travelled count disagree with the die. */
-  transition: transform 65ms linear;
+  /* NO transition on the walker's transform.
+     The animator interpolates position itself, once per animation frame (see
+     useGameAnimator.js), so a transition here would be a second clock chasing
+     the first — that is precisely what used to truncate slides and make the
+     piece skip squares. Idle tokens get a short transition below, where there
+     is no animator to conflict with. */
   transform-box: view-box;
+}
+
+/* Tokens that are NOT walking may ease between positions — this is only the
+   re-fanning of a stack after somebody else's move, never the walk itself. */
+.tk:not(.tk--walking):not(.tk--landed) {
+  transition: transform 200ms var(--ease-out);
 }
 
 /* Generous invisible tap target — the piece is far too small to hit reliably
@@ -157,16 +164,28 @@
 
 /* -- movement ------------------------------------------------------------- */
 
-/* No hop, lift or squash while walking: the token slides flat and fast from
-   square to square. The motion is carried entirely by the `.tk` transform
-   transition, so what you see is exactly one slide per square counted. */
+/* The hop is drawn, not animated by CSS: the animator supplies both the arc
+   height and the scale as inline transforms, frame by frame. All this rule
+   does is make sure no leftover keyframe animation fights those values —
+   notably the `tk-beckon` pulse, which a token keeps until the server's next
+   snapshot says it is no longer movable. */
 .tk--walking .tk__lift,
 .tk--landed .tk__lift {
-  animation: none;
-  transform: none;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
-.tk--walking .tk__shadow { opacity: 0.34; }
+.tk--walking .tk__spin,
+.tk--landed .tk__spin { animation: none; }
+
+/* The landing: a single squash on arrival, so a move ends on a definite beat. */
+.tk--landed .tk__lift { animation: tk-land 200ms var(--ease-bounce); }
+
+@keyframes tk-land {
+  0%   { transform: scale(1.12); }
+  55%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
 
 /* -- interactive ---------------------------------------------------------- */
 
@@ -174,23 +193,30 @@
 .tk--movable .tk__rim { fill: var(--gold-400); }
 .tk--movable .tk__disc { stroke: var(--gold-600); stroke-width: 0.09; }
 
-/* A clear, steady pulse so it is obvious which pieces you may tap. Scale only —
-   no vertical drift, which read as the floaty motion that was removed. */
+/* A slow, shallow breath. The old cue scaled 14% every second, which at board
+   scale is a piece visibly jumping in place — it made the target feel like it
+   was moving under the thumb. This is calm enough to read as "tappable"
+   without the piece ever leaving its square. */
 .tk--movable .tk__spin {
-  animation: tk-beckon 1s var(--ease) infinite;
+  animation: tk-beckon 2.2s var(--ease) infinite;
   transform-box: fill-box;
   transform-origin: center;
 }
 
 @keyframes tk-beckon {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.14); }
+  50% { transform: scale(1.05); }
 }
 
 /* Pressing a piece gives immediate feedback, before the server replies. */
 .tk--movable:active .tk__spin {
   animation: none;
-  transform: scale(0.9);
+  transform: scale(0.88);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tk--movable .tk__spin,
+  .tk__halo { animation: none; }
 }
 
 .tk__halo {

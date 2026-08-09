@@ -60,9 +60,12 @@ const CENTER_TRIANGLES = [
 
 function Token({
   x, y, color, size, movable, dimmed, walking, landed, captured, finished,
-  count, boardRotation, onClick, label,
+  count, boardRotation, onClick, label, lift = 0,
 }) {
   const r = size / 2;
+  // The piece grows a little at the top of its arc and its shadow tightens,
+  // which is what sells the hop as leaving the board rather than sliding.
+  const scale = 1 + lift * 0.16;
   return (
     <g
       className={[
@@ -85,11 +88,18 @@ function Token({
       {movable && <circle className="tk__halo" r={r * 1.4} />}
 
       {/* Invisible tap target, far larger than the disc itself.
-          The visual piece is only ~0.88 board units across, which is a few
-          millimetres on a phone and very hard to hit. This circle is drawn
-          first (so it sits behind the art) and is the element that actually
-          receives the tap. */}
-      {onClick && <circle className="tk__hit" r={r * 2.1} />}
+          The visual piece is only ~0.88 board units across — a few millimetres
+          on a phone, and far below the ~44px comfortable minimum. This circle
+          is drawn first (so it sits behind the art) and is the element that
+          actually receives the tap.
+
+          The radius is a FLAT board-unit constant, deliberately not derived
+          from `size`: a token sitting in the yard is drawn smaller, and scaling
+          the target with it produced a ~22px tap area — half the comfortable
+          minimum, and exactly the pieces that were hardest to select. Slightly
+          over one square, which is as large as it can be before two adjacent
+          movable pieces start stealing each other's taps. */}
+      {onClick && <circle className="tk__hit" r={1.05} />}
 
       {/* `tk__spin` keeps the piece upright against the board rotation.
           There is deliberately NO `key={hop}` here: re-keying remounted this
@@ -97,12 +107,22 @@ function Token({
           from scratch mid-slide and made the token visibly skip squares — the
           count on the board then disagreed with the die. The piece now slides
           continuously and lands on exactly the square the server sent. */}
-      <g className="tk__lift">
+      <g className="tk__lift" style={lift ? { transform: `scale(${scale})` } : undefined}>
         <g className="tk__spin" style={{ transform: `rotate(${-boardRotation}deg)` }}>
           {/* Contact shadow, then a solid disc with a rim and a highlight.
               A filled disc reads far better at thumbnail size than an outlined
               pawn, which washed out against the coloured yards. */}
-          <ellipse className="tk__shadow" cx="0" cy={r * 0.5} rx={r * 0.72} ry={r * 0.24} />
+          {/* Stays put on the square while the piece arcs above it: it is
+              pushed back down by the same amount the group was lifted, and
+              shrinks with height. */}
+          <ellipse
+            className="tk__shadow"
+            cx="0"
+            cy={r * 0.5 + lift * 0.42}
+            rx={r * (0.72 - lift * 0.22)}
+            ry={r * (0.24 - lift * 0.07)}
+            opacity={1 - lift * 0.45}
+          />
           <circle className="tk__rim" r={r * 0.92} />
           <circle className="tk__disc" r={r * 0.74} />
           <circle className="tk__inner" r={r * 0.4} />
@@ -279,15 +299,32 @@ export function Board({ game, movableTokens = [], onTokenClick, animating, captu
     }
 
     // The walker is drawn last, centred, entirely from animation state — the
-    // snapshot already holds it at its destination.
+    // snapshot already holds it at its destination, so reading position from
+    // the snapshot would teleport it there before the walk finished.
+    //
+    // Its position is INTERPOLATED here rather than transitioned in CSS. The
+    // animator publishes the two squares of the current hop plus how far along
+    // it is (`hopT`), so the piece is drawn at an exact point between them on
+    // every frame. There is no transition to be cut short, which is what used
+    // to make the token skip squares and appear to have moved the wrong count.
     if (animating) {
-      const [row, col] = B.coordFor(animating.color, animating.progress, animating.tokenIndex);
+      const to = B.coordFor(animating.color, animating.progress, animating.tokenIndex);
+      const fromSquare = animating.fromProgress ?? animating.progress;
+      const from = B.coordFor(animating.color, fromSquare, animating.tokenIndex);
+      const t = animating.hopT ?? 1;
+
+      const row = from[0] + (to[0] - from[0]) * t;
+      const col = from[1] + (to[1] - from[1]) * t;
+
       out.push({
         seat: animating.seat,
         tokenIndex: animating.tokenIndex,
         color: animating.color,
         x: col + 0.5,
-        y: row + 0.5,
+        // The hop's arc. Subtracting lifts the piece off the board; it is zero
+        // at both ends of a hop, so the token always lands dead-centre.
+        y: row + 0.5 - (animating.lift ?? 0) * 0.42,
+        lift: animating.lift ?? 0,
         count: 0,
         inYard: B.isInYard(animating.progress),
         finished: B.isFinished(animating.progress),
@@ -328,6 +365,7 @@ export function Board({ game, movableTokens = [], onTokenClick, animating, captu
                   captured={captured}
                   finished={t.finished}
                   count={t.count}
+                  lift={t.lift ?? 0}
                   boardRotation={rotation}
                   onClick={movable ? () => onTokenClick?.(t.tokenIndex) : undefined}
                   label={`${t.color} token ${t.tokenIndex + 1}${movable ? ', tap to move' : ''}`}
