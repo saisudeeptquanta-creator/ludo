@@ -185,6 +185,53 @@
 }
 .gs__emotes button:active { transform: scale(0.88); }
 
+/* -------------------------------------------------------------- chat ----- */
+
+.gs__phrases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.gs__phrase {
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+  transition: transform var(--dur-fast) var(--ease-spring), background var(--dur-fast) var(--ease);
+}
+.gs__phrase:active { transform: scale(0.94); }
+.gs__phrase:hover { background: rgb(255 255 255 / 0.12); }
+
+.gs__chat {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.gs__chat-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--text-base);
+  /* 16px minimum, or iOS zooms the whole page when the field is focused. */
+  font-size: max(16px, var(--text-base));
+}
+.gs__chat-input::placeholder { color: var(--text-subtle); }
+.gs__chat-input:focus {
+  outline: none;
+  border-color: var(--gold-400);
+}
+
 .gs__menu-note { color: var(--text-muted); font-size: var(--text-sm); text-align: center; }
 
 /* ------------------------------------------------------------- responsive */

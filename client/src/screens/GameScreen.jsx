@@ -21,6 +21,21 @@ import './game-screen.css';
 
 const EMOTES = ['😂', '🔥', '😎', '👏', '😱', '🎉', '😡', '👍'];
 
+/** Canned lines. Must stay in step with CHAT_PHRASES in the server config. */
+const PHRASES = [
+  'Good luck!',
+  'Nice move!',
+  'Well played',
+  'So close!',
+  'Oops!',
+  'Your turn',
+  'Hurry up!',
+  'Good game',
+];
+
+/** Mirrors GAME_CONFIG.CHAT_MAX_LENGTH — the server truncates to this. */
+const CHAT_MAX_LENGTH = 120;
+
 export default function GameScreen({ onExit }) {
   const {
     game, dice, walking, captured, emotes, results, pending, banner, queue, animating,
@@ -43,6 +58,7 @@ export default function GameScreen({ onExit }) {
   const [error, setError] = useState(null);
   /** Rank whose "you finished" popup has been dismissed, so it shows once. */
   const [finishSeen, setFinishSeen] = useState(null);
+  const [chatText, setChatText] = useState('');
 
   useGameAnimator();
 
@@ -357,6 +373,51 @@ export default function GameScreen({ onExit }) {
             </button>
           ))}
         </div>
+
+        {/* Canned lines: the things people actually want to say, one tap away
+            and with nothing to type on a phone mid-game. */}
+        <div className="gs__phrases">
+          {PHRASES.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className="gs__phrase"
+              onClick={() => {
+                act(() => emote({ text: p }));
+                setEmoteOpen(false);
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        <form
+          className="gs__chat"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const value = chatText.trim();
+            if (!value) return;
+            act(() => emote({ text: value }));
+            setChatText('');
+            setEmoteOpen(false);
+          }}
+        >
+          <input
+            className="gs__chat-input"
+            value={chatText}
+            onChange={(e) => setChatText(e.target.value)}
+            placeholder="Type a message…"
+            // Matches the server's cap, so the field cannot accept more than
+            // will actually be sent.
+            maxLength={CHAT_MAX_LENGTH}
+            aria-label="Message"
+            enterKeyHint="send"
+          />
+          <Button type="submit" variant="gold" disabled={!chatText.trim()}>
+            Send
+          </Button>
+        </form>
       </Sheet>
 
       <Sheet

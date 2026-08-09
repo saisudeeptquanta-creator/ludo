@@ -88,8 +88,13 @@ export function SeatCard({
       )}
 
       {emote && (
-        <span className="seatcard__emote" key={emote.id}>
-          {emote.emote}
+        // Text and emoji share the bubble; text gets its own class so it can
+        // wrap and cap its width instead of scaling up like an emoji.
+        <span
+          className={cx('seatcard__emote', emote.text && 'seatcard__emote--text')}
+          key={emote.id}
+        >
+          {emote.text ?? emote.emote}
         </span>
       )}
     </div>

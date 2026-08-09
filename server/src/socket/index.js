@@ -271,17 +271,49 @@ export function createSocketServer(httpServer) {
       return { left: true };
     });
 
-    on('game:emote', async ({ gameId, emote }) => {
-      const allowed = ['😂', '🔥', '😎', '👏', '😱', '🎉', '😡', '👍'];
-      if (!allowed.includes(emote)) throw new AppError(400, 'INVALID_EMOTE', 'Unknown emote.');
+    on('game:emote', async ({ gameId, emote, text }) => {
       const state = games.loadState(gameId);
       if (!state || games.seatOf(state, playerId) === null) {
         throw new AppError(403, 'NOT_IN_GAME', 'You are not a player in this game.');
       }
+
+      /**
+       * Two kinds of message share this channel: a picked emoji, and free text.
+       *
+       * An emoji is checked against the allow list, so it is safe by
+       * construction. Free text is not — it is arbitrary input that every other
+       * player's browser will render, so it is normalised and length-capped
+       * HERE, on the server. Doing it only in the client would leave the check
+       * to whoever is sending, which is exactly the party that cannot be
+       * trusted. Control characters are stripped (they can hide or reorder what
+       * is displayed) and runs of whitespace collapsed so nothing can be padded
+       * out to overflow another player's screen.
+       */
+      let payload;
+      if (typeof text === 'string' && text.trim()) {
+        const clean = text
+          .normalize('NFC')
+          // Line breaks and tabs become spaces FIRST: stripping them as
+          // control characters would run the words either side together.
+          .replace(/[\r\n\t\v\f]+/g, ' ')
+          // eslint-disable-next-line no-control-regex
+          .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, GAME_CONFIG.CHAT_MAX_LENGTH);
+        if (!clean) throw new AppError(400, 'INVALID_MESSAGE', 'Message is empty.');
+        payload = { text: clean };
+      } else {
+        if (!GAME_CONFIG.CHAT_EMOTES.includes(emote)) {
+          throw new AppError(400, 'INVALID_EMOTE', 'Unknown emote.');
+        }
+        payload = { emote };
+      }
+
       io.to(gameChannel(gameId)).emit('game:emote', {
         playerId,
         seat: games.seatOf(state, playerId),
-        emote,
+        ...payload,
       });
       return { sent: true };
     }, RATE_LIMITS.chat);

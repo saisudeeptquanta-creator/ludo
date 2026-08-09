@@ -144,10 +144,16 @@ export const useGame = create((set, get) => ({
     }, ms);
   },
 
-  pushEmote({ seat, emote }) {
+  /** A reaction from any seat: either an emoji or a line of text. */
+  pushEmote({ seat, emote, text }) {
     const id = `${seat}-${Date.now()}-${Math.random()}`;
-    set({ emotes: [...get().emotes, { id, seat, emote }] });
-    setTimeout(() => set({ emotes: get().emotes.filter((e) => e.id !== id) }), 2400);
+    // Only one bubble per seat at a time — a second message replaces the first
+    // rather than stacking over the board.
+    const others = get().emotes.filter((e) => e.seat !== seat);
+    set({ emotes: [...others, { id, seat, emote, text }] });
+    // Text needs longer on screen than an emoji: it has to be read.
+    const ms = text ? 4200 : 2400;
+    setTimeout(() => set({ emotes: get().emotes.filter((e) => e.id !== id) }), ms);
   },
 
   /**
@@ -226,9 +232,15 @@ export const useGame = create((set, get) => ({
     }
   },
 
-  async emote(emote) {
+  /**
+   * Send a reaction. Pass `{ emote }` for an emoji or `{ text }` for a message;
+   * the server validates and sanitises either way.
+   */
+  async emote(payload) {
     const game = get().game;
-    if (game) await send('game:emote', { gameId: game.id, emote });
+    if (!game) return;
+    const body = typeof payload === 'string' ? { emote: payload } : payload;
+    await send('game:emote', { gameId: game.id, ...body });
   },
 
   async leaveGame() {

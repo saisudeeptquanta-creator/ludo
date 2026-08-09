@@ -103,7 +103,8 @@ export default function App() {
 
       'game:events': ({ events }) => useGame.getState().enqueue(events),
 
-      'game:emote': ({ seat, emote }) => useGame.getState().pushEmote({ seat, emote }),
+      'game:emote': ({ seat, emote, text }) =>
+        useGame.getState().pushEmote({ seat, emote, text }),
 
       'game:finished': (results) => {
         useGame.getState().setResults(results);

@@ -151,3 +151,35 @@
   filter: drop-shadow(0 3px 6px rgb(0 0 0 / 0.5));
   z-index: 5;
 }
+
+/* A typed message reuses the emote bubble but has to behave like text: it
+   wraps, caps its width so it cannot cover the board, and sits on a readable
+   plate instead of floating as a bare glyph. It also lingers longer (see
+   pushEmote) because it has to be read rather than just glanced at. */
+.seatcard__emote--text {
+  top: -14px;
+  right: 50%;
+  transform: translateX(50%);
+  width: max-content;
+  max-width: min(180px, 44vw);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--surface, #1b2138);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  line-height: 1.3;
+  text-align: center;
+  white-space: normal;
+  /* Long unbroken input must not stretch the plate off-screen. */
+  overflow-wrap: anywhere;
+  animation: emote-text-rise 4.2s var(--ease-out) forwards;
+}
+
+@keyframes emote-text-rise {
+  0% { opacity: 0; transform: translateX(50%) translateY(6px) scale(0.9); }
+  10% { opacity: 1; transform: translateX(50%) translateY(0) scale(1); }
+  85% { opacity: 1; transform: translateX(50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(50%) translateY(-10px) scale(0.96); }
+}

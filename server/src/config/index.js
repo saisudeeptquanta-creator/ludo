@@ -110,6 +110,27 @@ export const GAME_CONFIG = {
    */
   RECONNECT_GRACE_MS: int(process.env.RECONNECT_GRACE_MS, 600_000),
 
+  /**
+   * In-game chat.
+   *
+   * The emoji list and the canned phrases are the only things a client may send
+   * without free-text validation. `CHAT_MAX_LENGTH` bounds a typed message —
+   * long enough for a real sentence, short enough that it cannot crowd out the
+   * board on a phone.
+   */
+  CHAT_EMOTES: ['😂', '🔥', '😎', '👏', '😱', '🎉', '😡', '👍'],
+  CHAT_PHRASES: [
+    'Good luck!',
+    'Nice move!',
+    'Well played',
+    'So close!',
+    'Oops!',
+    'Your turn',
+    'Hurry up!',
+    'Good game',
+  ],
+  CHAT_MAX_LENGTH: 120,
+
   /** Turn order around the board. Seats are assigned from these lists. */
   COLORS: ['RED', 'GREEN', 'YELLOW', 'BLUE'],
   SEATING: {
