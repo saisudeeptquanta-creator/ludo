@@ -33,8 +33,16 @@ export const HOME_COLUMN_LENGTH = 6;
  * square before completing the loop.
  */
 export const LAST_RING_PROGRESS = RING_LENGTH - 2; // 50
-/** progress value that means "on the centre / finished". */
-export const FINISH_PROGRESS = LAST_RING_PROGRESS + HOME_COLUMN_LENGTH + 1; // 57
+/**
+ * Progress value that means "home".
+ *
+ * The LAST square of the home column IS home — there is no extra step onto the
+ * centre beyond it. Counting the centre as a further square meant a token
+ * walked to the end of its column, still showed one more step to take, and any
+ * surplus then bounced it back down; that trailing step is what made the finish
+ * feel like it sat in the middle of the column rather than at its end.
+ */
+export const FINISH_PROGRESS = LAST_RING_PROGRESS + HOME_COLUMN_LENGTH; // 56
 
 /**
  * The ring, walked clockwise starting from RED's entry square at [13,6].
@@ -142,7 +150,13 @@ export function ringIndexFor(color, progress) {
   return (START_INDEX[color] + progress) % RING_LENGTH;
 }
 
-/** Index within the colour's home column (0..4), or null. */
+/**
+ * Index within the colour's home column, or null.
+ *
+ * Ranges 0..HOME_COLUMN_LENGTH-2 for a token still travelling; the final index
+ * belongs to a FINISHED token and is resolved by `coordFor` directly, since a
+ * finished token is no longer "in the column" for occupancy purposes.
+ */
 export function homeColumnIndexFor(progress) {
   if (!isInHomeColumn(progress)) return null;
   return progress - LAST_RING_PROGRESS - 1;
@@ -174,7 +188,9 @@ export function cellKey(color, progress) {
 /** Grid coordinate [row, col] for rendering. Yard needs the token's slot. */
 export function coordFor(color, progress, tokenIndex = 0) {
   if (isInYard(progress)) return YARD_SLOTS[color][tokenIndex];
-  if (isFinished(progress)) return CENTER_CELL;
+  // Home is the LAST square of the colour's own column, not the shared centre:
+  // that square is the end of the road, so a finished token rests there.
+  if (isFinished(progress)) return HOME_COLUMN[color][HOME_COLUMN_LENGTH - 1];
   if (isInHomeColumn(progress)) return HOME_COLUMN[color][homeColumnIndexFor(progress)];
   return RING[ringIndexFor(color, progress)];
 }

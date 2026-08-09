@@ -74,11 +74,26 @@ test('the four starred safe squares sit 8 steps past each entry', () => {
   assert.equal(B.SAFE_RING_INDICES.size, 8);
 });
 
-test('progress model: 57 steps from entry square to centre', () => {
+test('progress model: home is the last home-column square', () => {
   assert.equal(B.LAST_RING_PROGRESS, 50);
-  assert.equal(B.FINISH_PROGRESS, 57);
-  // 51 ring squares + 6 home-column squares + the centre = 58 positions
-  assert.equal(B.LAST_RING_PROGRESS + 1 + B.HOME_COLUMN_LENGTH + 1, 58);
+  // The END of the home column IS home — there is no further step onto the
+  // centre. 51 ring squares + 6 home-column squares = 57 positions, the last
+  // of which is the finish.
+  assert.equal(B.FINISH_PROGRESS, 56);
+  assert.equal(B.LAST_RING_PROGRESS + B.HOME_COLUMN_LENGTH, B.FINISH_PROGRESS);
+  assert.equal(B.LAST_RING_PROGRESS + 1 + B.HOME_COLUMN_LENGTH, 57);
+
+  // A finished token rests on its own column's last square, never the centre.
+  for (const color of B.COLORS) {
+    const at = B.coordFor(color, B.FINISH_PROGRESS);
+    const last = B.HOME_COLUMN[color][B.HOME_COLUMN_LENGTH - 1];
+    assert.deepEqual(at, last, `${color} finishes on its last home square`);
+    assert.notDeepEqual(at, B.CENTER_CELL, `${color} does not finish on the centre`);
+  }
+
+  // The square before home is still in the column and needs exactly one step.
+  assert.ok(B.isInHomeColumn(B.FINISH_PROGRESS - 1));
+  assert.ok(B.isFinished(B.FINISH_PROGRESS));
 });
 
 test('every colour turns off the ring two squares before its own entry', () => {

@@ -281,12 +281,14 @@ export function Board({ game, movableTokens = [], onTokenClick, animating, captu
         let count = i === 0 ? group.length : 0;
 
         if (B.isFinished(t.progress)) {
-          // Every colour's finished tokens share the centre cell, so fan them
-          // along their own home triangle instead of piling up.
+          // All four finished tokens rest on the LAST square of their own home
+          // column, so fan them across that square rather than piling up. The
+          // spread is perpendicular to the column's direction of travel, which
+          // keeps them inside the lane instead of spilling onto the centre.
           const dir = HOME_DIRECTION[t.color];
-          const lane = (i - (group.length - 1) / 2) * 0.3;
-          x = 7.5 + dir.x * 0.85 + dir.y * lane;
-          y = 7.5 + dir.y * 0.85 - dir.x * lane;
+          const lane = (i - (group.length - 1) / 2) * 0.22;
+          x = col + 0.5 + dir.y * lane;
+          y = row + 0.5 - dir.x * lane;
           count = 0;
         } else if (group.length > 1) {
           const a = (i / group.length) * Math.PI * 2 - Math.PI / 2;

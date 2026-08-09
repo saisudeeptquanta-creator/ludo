@@ -62,12 +62,12 @@ export const GAME_CONFIG = {
   /**
    * When every token is still in the yard, any roll releases one.
    *
-   * On by default: without it the opening is dead time, since a player with
-   * nothing on the board can only wait for a six. This keeps the dice honest —
-   * the distribution is untouched and the rule applies to all seats equally —
-   * while making sure a turn is never simply skipped.
+   * OFF: a token leaves the yard only on a six, which is the classic rule.
+   * The mechanism stays available as a room setting for anyone who wants a
+   * faster opening, but it is not the default — releasing on any roll removes
+   * the tension of the opening entirely.
    */
-  RELEASE_ON_ANY_ROLL_WHEN_STUCK: true,
+  RELEASE_ON_ANY_ROLL_WHEN_STUCK: false,
 
   EXTRA_TURN_ON_SIX: true,
   EXTRA_TURN_ON_CAPTURE: true,
