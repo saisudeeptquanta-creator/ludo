@@ -59,9 +59,9 @@ const TIMING = {
   /** Settle after the final square. */
   land: 90,
   /** Tumble shown for another player's roll (ours is already tumbling). */
-  tumble: 200,
+  tumble: 620,
   /** Beat after the die settles, before the move plays. */
-  afterRoll: 60,
+  afterRoll: 380,
   capture: 380,
   finish: 300,
   extraTurn: 160,
@@ -144,8 +144,8 @@ async function playRoll(event, mySeat, fast) {
 
   useGame.getState().setDice({ value: event.value, phase: 'result' });
   sfx.diceResult(event.value);
-  // Just enough for the 150ms settle to read before the token starts walking.
-  if (!fast) await sleep(140);
+  // Lets the 480ms settle land and read before the token starts walking.
+  if (!fast) await sleep(500);
 }
 
 /**
