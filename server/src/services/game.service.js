@@ -78,7 +78,18 @@ export function loadState(gameId) {
     turnDeadlineAt: g.turn_deadline_at ? Date.parse(g.turn_deadline_at) : null,
     winnerSeat: g.winner_id ? players.find((p) => p.userId === g.winner_id)?.seat ?? null : null,
     endReason: g.end_reason,
-    config: { ...GAME_CONFIG, ...JSON.parse(g.config_json || '{}') },
+    /**
+     * Stored settings layer over the defaults — except the rules that are not
+     * per-room options. EXACT_FINISH_REQUIRED is a core rule, not a lobby
+     * toggle, so it is pinned to the current default: a game created before the
+     * rule changed would otherwise keep the old behaviour forever, and a token
+     * in the home column would still offer moves that overshoot the centre.
+     */
+    config: {
+      ...GAME_CONFIG,
+      ...JSON.parse(g.config_json || '{}'),
+      EXACT_FINISH_REQUIRED: GAME_CONFIG.EXACT_FINISH_REQUIRED,
+    },
   };
 }
 

@@ -23,8 +23,15 @@
 import { useEffect, useRef, useState } from 'react';
 import './dice.css';
 
-/** How often the face changes mid-tumble. */
-const CYCLE_MS = 70;
+/**
+ * How often the face changes mid-tumble.
+ *
+ * Roughly three animation frames. Faster than this and the pips smear into an
+ * unreadable grey; slower and you see a sequence of held numbers rather than a
+ * tumble. The CSS tumble keyframe is the same length, so each face gets exactly
+ * one full rotation beat.
+ */
+const CYCLE_MS = 55;
 
 /**
  * Pip positions per face as explicit [column, row] on a 3x3 grid.
@@ -58,6 +65,10 @@ export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
   // The face currently painted. While rolling this is decorative noise; the
   // moment the roll ends it is replaced by the server's value, below.
   const [face, setFace] = useState(1);
+  // Bumped every cycle so the keyframe restarts even if the same face repeats.
+  const [beat, setBeat] = useState(0);
+  // Rotation for the current beat, re-randomised each time.
+  const [spin, setSpin] = useState({ axis: 0, tilt: 0 });
   const timer = useRef(null);
 
   useEffect(() => {
@@ -65,15 +76,22 @@ export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
       clearInterval(timer.current);
       return undefined;
     }
-    // Cycle faces, never repeating the one on screen — a repeat reads as the
-    // die having stopped early, which is exactly the stutter being fixed.
-    timer.current = setInterval(() => {
+    const step = () => {
       setFace((prev) => {
         let next = prev;
         while (next === prev) next = 1 + Math.floor(Math.random() * 6);
         return next;
       });
-    }, CYCLE_MS);
+      setBeat((b) => b + 1);
+      // A fresh axis per beat: the die appears to tumble end over end rather
+      // than shake side to side.
+      setSpin({
+        axis: 180 + Math.floor(Math.random() * 180),
+        tilt: -40 + Math.floor(Math.random() * 80),
+      });
+    };
+    step();
+    timer.current = setInterval(step, CYCLE_MS);
     return () => clearInterval(timer.current);
   }, [rolling]);
 
@@ -84,6 +102,7 @@ export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
   }, [rolling, value]);
 
   const shown = rolling ? face : (value ?? face);
+  const { axis, tilt } = spin;
 
   const label = rolling
     ? 'Rolling'
@@ -110,10 +129,18 @@ export function Dice({ value, phase, canRoll, onRoll, disabled, hint }) {
         aria-live="polite"
       >
         <span className="die-btn__glow" aria-hidden="true" />
-        {/* Keyed on the face so each change restarts the shake/pop keyframes,
-            giving the tumble motion without any transition to interrupt. */}
-        <span className="die__body" key={rolling ? `r${shown}` : `s${shown}`}>
-          <Face value={shown} />
+        {/* Keyed on the face so each change restarts the tumble keyframes,
+            giving the motion without any transition to interrupt. The random
+            per-face axis makes consecutive beats rotate differently, which is
+            what stops the tumble reading as one flat wobble. */}
+        <span className="die__stage-wrap">
+          <span
+            className="die__body"
+            key={rolling ? `r${beat}` : `s${shown}`}
+            style={rolling ? { '--spin': `${axis}deg`, '--tilt': `${tilt}deg` } : undefined}
+          >
+            <Face value={shown} />
+          </span>
         </span>
       </button>
 

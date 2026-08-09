@@ -70,10 +70,19 @@ export const GAME_CONFIG = {
   STACKING_ENABLED: true,
   BLOCKING_ENABLED: false,
   SAFE_CELLS_ENABLED: true,
-  // false = overshooting the centre bounces back down the home column, so a
-  // token near home can always move. true suppressed the move entirely, which
-  // stranded tokens and silently passed the turn.
-  EXACT_FINISH_REQUIRED: false,
+  /**
+   * An exact roll is required to land on the centre.
+   *
+   * A token four squares from home needs exactly a 4: a 5 or 6 simply cannot
+   * play that token, which is the classic rule and what players expect at the
+   * end of the home column. The alternative (bouncing the surplus back down)
+   * is implemented in rules.js and kept for variants, but it reads as the
+   * token moving the wrong way for no visible reason.
+   *
+   * This can only strand a token when EVERY token has no legal move, and the
+   * engine already forfeits the turn in that case rather than hanging.
+   */
+  EXACT_FINISH_REQUIRED: true,
 
   ON_TIMEOUT: 'auto_move', // 'auto_move' | 'skip'
   /**
@@ -87,8 +96,19 @@ export const GAME_CONFIG = {
    */
   MAX_CONSECUTIVE_TIMEOUTS: int(process.env.MAX_CONSECUTIVE_TIMEOUTS, 20),
 
-  /** How long a disconnected player keeps their seat. */
-  RECONNECT_GRACE_MS: int(process.env.RECONNECT_GRACE_MS, 90_000),
+  /**
+   * How long a disconnected player keeps their seat.
+   *
+   * Going offline must not cost the game. The turn clock keeps running while
+   * someone is away — the server auto-plays their turns, so the others are
+   * never stuck waiting — and on return `game:sync` hands back the current
+   * snapshot plus every event missed, so play resumes exactly where it is.
+   *
+   * Generous on purpose: a phone that locks, a tunnel, or a wifi handover all
+   * exceed a minute easily, and in a 2-player game dropping the seat ends the
+   * match outright. Only a genuine walk-away should reach this.
+   */
+  RECONNECT_GRACE_MS: int(process.env.RECONNECT_GRACE_MS, 600_000),
 
   /** Turn order around the board. Seats are assigned from these lists. */
   COLORS: ['RED', 'GREEN', 'YELLOW', 'BLUE'],

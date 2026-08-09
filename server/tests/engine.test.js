@@ -254,23 +254,98 @@ test('consecutive-six counter resets after a non-six', () => {
 
 // ------------------------------------------------------------- home + win --
 
-test('overshooting the centre bounces back instead of stranding the token', () => {
-  // A token near home must ALWAYS have a move. Suppressing the overshoot left
-  // it stuck and silently passed the turn — the "went 2 steps and stopped"
-  // bug. The overshoot now bounces off the centre and back down the column.
+test('landing on the centre needs an exact roll', () => {
+  // EXACT_FINISH_REQUIRED is on: a token two from home is only playable with a
+  // 2. A larger roll cannot move it at all, which is the classic rule and what
+  // players expect at the end of the home column.
   let s = makeState(2);
   s = place(s, 0, 0, B.FINISH_PROGRESS - 2); // needs exactly 2 to finish
 
-  const over = legalMoves(s, 0, 3);
-  assert.equal(over.length, 1, 'an overshoot must still be playable');
-  assert.equal(over[0].to, B.FINISH_PROGRESS - 1, 'a 3 bounces one back off the centre');
-  assert.ok(!over[0].finishes);
-  // The full dice value is travelled: 2 up to the centre, 1 back down.
-  assert.equal(over[0].path.length, 3, 'the walk must equal the dice value');
+  // Only this token's own moves matter here: a 6 also releases a yard token,
+  // which is a separate (and still legal) move.
+  const forToken0 = (dice) => legalMoves(s, 0, dice).filter((m) => m.tokenIndex === 0);
+  assert.equal(forToken0(3).length, 0, 'an overshoot is not playable');
+  assert.equal(forToken0(6).length, 0, 'a big overshoot is not playable');
 
-  const exact = legalMoves(s, 0, 2);
+  const exact = forToken0(2);
   assert.equal(exact.length, 1);
-  assert.ok(exact[0].finishes, 'an exact roll still finishes');
+  assert.ok(exact[0].finishes, 'an exact roll finishes');
+  assert.equal(exact[0].path.length, 2, 'the walk must equal the dice value');
+
+  // Short of the centre still moves normally.
+  const short = forToken0(1);
+  assert.equal(short.length, 1);
+  assert.equal(short[0].to, B.FINISH_PROGRESS - 1);
+});
+
+test('in the home column only a roll that fits is offered', () => {
+  // Four steps from the centre: 1..4 are playable, 5 and 6 are not. This is
+  // the rule as the player states it — you may move only as many steps as
+  // remain, never more.
+  let s = makeState(2);
+  const remaining = 4;
+  s = place(s, 0, 0, B.FINISH_PROGRESS - remaining);
+  // Park the rest so a 6 cannot release anything and confuse the count.
+  s = place(s, 0, 1, B.FINISH_PROGRESS);
+  s = place(s, 0, 2, B.FINISH_PROGRESS);
+  s = place(s, 0, 3, B.FINISH_PROGRESS);
+
+  for (let dice = 1; dice <= 6; dice += 1) {
+    const moves = legalMoves(s, 0, dice).filter((m) => m.tokenIndex === 0);
+    if (dice <= remaining) {
+      assert.equal(moves.length, 1, `${dice} must be playable with ${remaining} left`);
+      assert.equal(moves[0].to, B.FINISH_PROGRESS - remaining + dice);
+      assert.equal(moves[0].finishes, dice === remaining);
+    } else {
+      assert.equal(moves.length, 0, `${dice} must NOT be playable with ${remaining} left`);
+    }
+  }
+});
+
+test('a token stuck in the home column does not block another token', () => {
+  // The stuck token must not consume the turn: a different token that CAN
+  // move has to still be offered.
+  let s = makeState(2);
+  s = place(s, 0, 0, B.FINISH_PROGRESS - 1); // needs exactly 1
+  s = place(s, 0, 1, 10); // free to move anywhere
+
+  const moves = legalMoves(s, 0, 5);
+  assert.ok(!moves.some((m) => m.tokenIndex === 0), 'the stuck token is not offered');
+  assert.ok(moves.some((m) => m.tokenIndex === 1), 'the other token is still playable');
+});
+
+test('the home column can never be captured', () => {
+  // Two seats whose columns overlap in progress terms. Whatever an opponent
+  // rolls, no move may report a capture against a token in its home column.
+  let s = makeState(2);
+  s = place(s, 1, 0, B.LAST_RING_PROGRESS + 1); // just inside seat 1's column
+  s = place(s, 1, 1, B.LAST_RING_PROGRESS + 3);
+
+  for (let from = 0; from <= B.LAST_RING_PROGRESS; from += 1) {
+    s = place(s, 0, 0, from);
+    for (let dice = 1; dice <= 6; dice += 1) {
+      for (const m of legalMoves(s, 0, dice)) {
+        assert.equal(m.captures.length, 0, `capture reached a home column from ${from} with ${dice}`);
+      }
+    }
+  }
+});
+
+test('a token that cannot finish exactly forfeits the turn rather than hanging', () => {
+  // The danger of requiring an exact roll is a player with no legal move at
+  // all. The engine must pass the turn on, not stall.
+  let s = makeState(2);
+  // Three tokens already home, the fourth one short of the centre. A 5 can
+  // neither finish it exactly nor release anything, so seat 0 has no move.
+  s = place(s, 0, 0, B.FINISH_PROGRESS - 1);
+  s = place(s, 0, 1, B.FINISH_PROGRESS);
+  s = place(s, 0, 2, B.FINISH_PROGRESS);
+  s = place(s, 0, 3, B.FINISH_PROGRESS);
+
+  assert.equal(legalMoves(s, 0, 5).length, 0, 'no move is available');
+
+  const rolled = E.rollDice(s, { seat: 0, value: 5 });
+  assert.notEqual(rolled.state.currentSeat, 0, 'the turn must advance');
 });
 
 test('an exact roll finishes a token on the centre', () => {

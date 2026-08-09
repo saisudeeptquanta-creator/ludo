@@ -67,7 +67,14 @@
 .sq--plain { fill: #ffffff; }
 .sq--entry { fill: var(--player); }
 .sq--star { fill: color-mix(in srgb, var(--gold-400) 34%, white); }
-.sq--home { fill: var(--player); }
+/* The home column. Saturated and outlined so it reads as its own protected
+   lane rather than more track — nothing standing here can ever be captured
+   (see the capture gate in rules.js). */
+.sq--home {
+  fill: var(--player);
+  stroke: rgb(255 255 255 / 0.5);
+  stroke-width: 0.05;
+}
 .sq--corner { fill: #eaeef9; }
 
 .sq__star { fill: color-mix(in srgb, var(--gold-600) 92%, black); opacity: 0.9; }
@@ -145,14 +152,25 @@
 
 /* A solid counter: white rim, saturated disc, darker centre, highlight.
    The white rim is what makes a piece readable on top of its own yard. */
-.tk__rim { fill: #ffffff; }
+.tk__rim {
+  fill: #ffffff;
+  stroke: rgb(15 20 40 / 0.20);
+  stroke-width: 0.03;
+}
 .tk__disc {
   fill: var(--player);
   stroke: var(--player-deep);
-  stroke-width: 0.06;
+  stroke-width: 0.07;
 }
-.tk__inner { fill: var(--player-dark); opacity: 0.5; }
-.tk__gloss { fill: rgb(255 255 255 / 0.55); }
+/* A recessed well, so the centre reads as depth rather than a printed dot. */
+.tk__well {
+  fill: var(--player-deep);
+  opacity: 0.34;
+}
+.tk__inner { fill: var(--player-dark); opacity: 0.55; }
+.tk__gloss { fill: rgb(255 255 255 / 0.6); }
+/* Tight specular dot, opposite the main gloss. */
+.tk__spark { fill: rgb(255 255 255 / 0.85); }
 
 .tk__stack circle { fill: #fff; stroke: var(--player-deep); stroke-width: 0.05; }
 .tk__stack text {

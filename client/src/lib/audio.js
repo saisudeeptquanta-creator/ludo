@@ -14,7 +14,10 @@ const STORAGE_KEY = 'ludo.audio';
 const defaults = {
   soundEnabled: true,
   musicEnabled: false,
-  effectsVolume: 0.6,
+  // Effects carry the feedback for every action, so they sit well forward in
+  // the mix. The individual sounds below are shaped to stay under clipping at
+  // this level.
+  effectsVolume: 0.9,
   musicVolume: 0.25,
 };
 
@@ -147,29 +150,46 @@ export const sfx = {
 
   hover: () => tone({ freq: 900, duration: 0.03, type: 'sine', gain: 0.06 }),
 
-  /** Tumbling rattle, then a settling knock. */
+  /**
+   * Tumbling rattle, then a settling knock.
+   *
+   * The rattle is timed to the animator's roll (DICE_SPIN_MS): the clatter runs
+   * for the whole tumble and the knock lands as the die stops, so the sound and
+   * the picture finish together.
+   */
   diceRoll: () => {
-    for (let i = 0; i < 7; i += 1) {
-      noise({ duration: 0.05, gain: 0.14, at: i * 0.055, filterFreq: 900 + Math.random() * 2200, q: 3 });
+    for (let i = 0; i < 9; i += 1) {
+      noise({
+        duration: 0.045,
+        gain: 0.2,
+        at: i * 0.042,
+        filterFreq: 900 + Math.random() * 2400,
+        q: 3,
+      });
     }
-    noise({ duration: 0.12, gain: 0.22, at: 0.42, filterFreq: 420, q: 1.5 });
+    noise({ duration: 0.13, gain: 0.32, at: 0.38, filterFreq: 380, q: 1.5 });
   },
 
+  /** The landing note — pitched by the value, so a six is audibly the top. */
   diceResult: (value = 1) => {
-    tone({ freq: PENTATONIC[(value - 1) % 5], duration: 0.18, type: 'triangle', gain: 0.24 });
+    tone({ freq: PENTATONIC[(value - 1) % 5], duration: 0.2, type: 'triangle', gain: 0.34 });
+    tone({ freq: 150, sweepTo: 92, duration: 0.16, type: 'sine', gain: 0.3 });
   },
 
-  /** One short blip per square travelled. */
+  /** One short blip per square travelled — the audible count of the move. */
   tokenStep: (index = 0) => {
-    tone({
-      freq: 480 + index * 26,
-      duration: 0.06,
-      type: 'square',
-      gain: 0.1,
-    });
+    // Rising pitch across the walk so a longer move is heard climbing.
+    tone({ freq: 520 + index * 34, duration: 0.055, type: 'triangle', gain: 0.2 });
+    noise({ duration: 0.035, gain: 0.12, filterFreq: 2600, q: 2 });
   },
 
-  tokenSelect: () => tone({ freq: 740, duration: 0.09, type: 'sine', gain: 0.18 }),
+  tokenSelect: () => tone({ freq: 740, duration: 0.09, type: 'sine', gain: 0.26 }),
+
+  /** Lands a token on its destination square. */
+  tokenLand: () => {
+    tone({ freq: 420, sweepTo: 300, duration: 0.12, type: 'triangle', gain: 0.26 });
+    noise({ duration: 0.07, gain: 0.16, filterFreq: 1100, q: 1.2 });
+  },
 
   /** Descending thud plus noise — the "sent home" sound. */
   capture: () => {

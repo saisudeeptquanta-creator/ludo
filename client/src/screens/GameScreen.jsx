@@ -15,8 +15,8 @@ import { Board } from '../components/board/Board.jsx';
 import { Dice } from '../components/game/Dice.jsx';
 import { SeatCard } from '../components/game/SeatCard.jsx';
 import { GameResult } from '../components/game/GameResult.jsx';
-import { useGameAnimator } from '../components/game/useGameAnimator.js';
-import { Button, Sheet, LoadingScreen, cx } from '../components/ui/index.jsx';
+import { useGameAnimator, abortReplay } from '../components/game/useGameAnimator.js';
+import { Button, Sheet, LoadingScreen, Confetti, cx } from '../components/ui/index.jsx';
 import './game-screen.css';
 
 const EMOTES = ['😂', '🔥', '😎', '👏', '😱', '🎉', '😡', '👍'];
@@ -41,6 +41,8 @@ export default function GameScreen({ onExit }) {
   const [emoteOpen, setEmoteOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [error, setError] = useState(null);
+  /** Rank whose "you finished" popup has been dismissed, so it shows once. */
+  const [finishSeen, setFinishSeen] = useState(null);
 
   useGameAnimator();
 
@@ -66,17 +68,48 @@ export default function GameScreen({ onExit }) {
 
     const off = onStatus(async (status) => {
       setConnection(status);
-      if (status !== 'connected') return;
+
+      if (status !== 'connected') {
+        /**
+         * The link dropped mid-replay.
+         *
+         * Whatever was being animated will never be completed by the events
+         * that were in flight, and a half-finished walk would leave a token
+         * stranded between squares while the snapshot says otherwise. Drop the
+         * animation state now so the board shows the plain truth until we are
+         * back and can replay properly.
+         */
+        abortReplay();
+        const g = useGame.getState();
+        g.setWalking(null);
+        g.setAnimating(false);
+        g.setCaptured([]);
+        return;
+      }
+
       try {
         const result = await send('game:sync', {
           gameId,
           lastStateVersion: useGame.getState().game?.stateVersion ?? 0,
         });
-        if (result?.snapshot && !cancelled) {
-          useGame.getState().setGame(result.snapshot);
-          if (result.events?.length && !result.resynced) {
-            useGame.getState().enqueue(result.events);
-          }
+        if (!result?.snapshot || cancelled) return;
+
+        /**
+         * Rejoin the game channel too.
+         *
+         * A reconnect gives us a NEW socket, which is not in the room the
+         * broadcasts go to — without this the snapshot below would be correct
+         * once and then never update again, so the board would silently freeze
+         * on the state it had at reconnect.
+         */
+        await send('game:join', { gameId }).catch(() => {});
+        if (cancelled) return;
+
+        useGame.getState().setGame(result.snapshot);
+        // Only replay a small gap. After a long absence the snapshot alone is
+        // the truth; animating a hundred stale moves would be nonsense.
+        if (result.events?.length && !result.resynced) {
+          useGame.getState().enqueue(result.events);
         }
       } catch {
         /* the join above will have surfaced anything fatal */
@@ -94,9 +127,17 @@ export default function GameScreen({ onExit }) {
   const canRoll = Boolean(
     isYourTurn && !game.diceRolled && !pending && !replaying && connection === 'connected',
   );
+  /**
+   * Tokens the server says you may move.
+   *
+   * Empty while the animator is replaying: the snapshot for the NEXT roll
+   * arrives before the previous move has finished walking, so without this a
+   * token glows (and can be tapped) against a die the player has not visually
+   * been shown yet.
+   */
   const movable = useMemo(
-    () => (game?.legalMoves ?? []).map((m) => m.tokenIndex),
-    [game?.legalMoves],
+    () => (replaying ? [] : (game?.legalMoves ?? []).map((m) => m.tokenIndex)),
+    [game?.legalMoves, replaying],
   );
 
   // The clock is the server's; correct for the offset between machines.
@@ -114,12 +155,27 @@ export default function GameScreen({ onExit }) {
   if (!game) return <LoadingScreen message={error ?? 'Loading board…'} />;
 
   const current = game.players.find((p) => p.seat === game.currentSeat);
+
+  /**
+   * You are done, but the game is not.
+   *
+   * The server ranks a player the moment their fourth token comes home and
+   * keeps the game `active` until only one seat is still playing. So a finished
+   * player has no turn to take and nothing to tap — they stay to watch. The
+   * board is fully rendered for them; only the controls go away.
+   */
+  const me = game.players.find((p) => p.seat === yourSeat);
+  const iFinished = me?.status === 'finished' && game.status === 'active';
+  const myRank = me?.finishedRank ?? null;
+
   const turnText =
     game.status !== 'active'
       ? 'Game over'
-      : isYourTurn
-        ? 'YOUR TURN'
-        : `${current?.player?.name ?? 'Player'}'s turn`;
+      : iFinished
+        ? 'Spectating'
+        : isYourTurn
+          ? 'YOUR TURN'
+          : `${current?.player?.name ?? 'Player'}'s turn`;
 
   const act = async (fn) => {
     try {
@@ -168,7 +224,9 @@ export default function GameScreen({ onExit }) {
           : !game.diceRolled
             ? 'Tap to roll'
             : movable.length === 0
-              ? 'No moves'
+              // The commonest reason by far is a home-column token needing an
+              // exact roll, so say that rather than a bare "No moves".
+              ? 'Too big — turn passes'
               : movable.length === 1
                 ? 'Tap the glowing token'
                 : `${movable.length} moves`;
@@ -232,15 +290,54 @@ export default function GameScreen({ onExit }) {
       {/* -------------------------------------------------------- controls */}
       <footer className="gs__controls safe-bottom">
         {error && <p className="gs__error">{error}</p>}
-        <Dice
-          value={dice.value}
-          phase={dice.phase}
-          canRoll={canRoll}
-          onRoll={() => act(() => roll())}
-          disabled={pending}
-          hint={hint}
-        />
+        {iFinished ? (
+          // No die for someone who has already finished — they have no turn to
+          // take. Replacing it (rather than merely disabling it) keeps a dead
+          // control from sitting under the thumb for the rest of the game.
+          <div className="gs__spectating" role="status">
+            <span className="gs__spectating-medal" aria-hidden="true">
+              {myRank === 1 ? '👑' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '🎲'}
+            </span>
+            <span>
+              You finished {myRank ? `#${myRank}` : ''} — watching the rest of the game
+            </span>
+          </div>
+        ) : (
+          <Dice
+            value={dice.value}
+            phase={dice.phase}
+            canRoll={canRoll}
+            onRoll={() => act(() => roll())}
+            disabled={pending}
+            hint={hint}
+          />
+        )}
       </footer>
+
+      {/* You came home while the others play on. Dismissable — the game
+          continues behind it and is worth watching. */}
+      {iFinished && finishSeen !== myRank && (
+        <div className="gs__done" role="dialog" aria-modal="true" aria-label="You finished">
+          <div className="gs__done-card">
+            <Confetti />
+            <div className="gs__done-crest" aria-hidden="true">
+              {myRank === 1 ? '👑' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '🏅'}
+            </div>
+            <h2>{myRank === 1 ? 'You Win!' : 'All Home!'}</h2>
+            <p>
+              {myRank === 1
+                ? 'All four tokens home — first place.'
+                : `All four tokens home. You finished #${myRank}.`}
+            </p>
+            <p className="gs__done-note">
+              The game carries on until one player is left. You can keep watching.
+            </p>
+            <Button size="lg" variant="gold" full onClick={() => setFinishSeen(myRank)}>
+              Watch the rest
+            </Button>
+          </div>
+        </div>
+      )}
 
       {results && <GameResult results={results} yourSeat={yourSeat} onExit={onExit} />}
 

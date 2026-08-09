@@ -123,10 +123,15 @@ function Token({
             ry={r * (0.24 - lift * 0.07)}
             opacity={1 - lift * 0.45}
           />
-          <circle className="tk__rim" r={r * 0.92} />
-          <circle className="tk__disc" r={r * 0.74} />
-          <circle className="tk__inner" r={r * 0.4} />
-          <ellipse className="tk__gloss" cx={-r * 0.24} cy={-r * 0.34} rx={r * 0.3} ry={r * 0.2} />
+          {/* White rim -> saturated body -> darker well -> two highlights.
+              The second, tighter highlight is what makes the piece read as a
+              rounded glass counter rather than a flat sticker. */}
+          <circle className="tk__rim" r={r * 0.94} />
+          <circle className="tk__disc" r={r * 0.78} />
+          <circle className="tk__well" r={r * 0.46} />
+          <circle className="tk__inner" r={r * 0.34} />
+          <ellipse className="tk__gloss" cx={-r * 0.22} cy={-r * 0.36} rx={r * 0.34} ry={r * 0.21} />
+          <circle className="tk__spark" cx={r * 0.26} cy={-r * 0.22} r={r * 0.08} />
 
           {count > 1 && (
             <g className="tk__stack" transform={`translate(${r * 0.62}, ${r * 0.62})`}>
@@ -345,7 +350,16 @@ export function Board({ game, movableTokens = [], onTokenClick, animating, captu
           <g className="tokens" filter="url(#pieceShadow)">
             {placed.map((t) => {
               const yours = t.seat === yourSeat;
-              const movable = yours && isYourTurn && movableTokens.includes(t.tokenIndex);
+              /**
+               * Selectable only if the SERVER listed this token as movable.
+               *
+               * A token that has entered its home column is offered only when
+               * the roll lands it exactly on or before the centre — the server
+               * omits it from `legalMoves` otherwise, so an overshoot simply
+               * has no glowing token. A finished token is never listed at all.
+               */
+              const movable =
+                yours && isYourTurn && !t.finished && movableTokens.includes(t.tokenIndex);
               const walking =
                 animating?.seat === t.seat && animating?.tokenIndex === t.tokenIndex;
               const captured = capturedTokens.some(

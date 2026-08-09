@@ -43,23 +43,29 @@ import { sfx } from '../../lib/audio.js';
 
 /* --------------------------------------------------------------- timings -- */
 
-/** Duration of a single hop, square to square. Slow enough to count. */
-const HOP_MS = 190;
+/**
+ * Duration of a single hop, square to square.
+ *
+ * Fast enough that a six takes well under a second, slow enough that the hops
+ * stay individually countable — below roughly 70ms they blur into one slide
+ * and the move stops being readable.
+ */
+const HOP_MS = 105;
 /** Hop duration once a path is long, so a six does not drag. */
-const HOP_FAST_MS = 150;
-const LONG_PATH = 5;
+const HOP_FAST_MS = 82;
+const LONG_PATH = 4;
 /** Beat between hops — the pause is what makes them read as separate jumps. */
-const HOP_GAP_MS = 45;
+const HOP_GAP_MS = 14;
 
 /** How long the die visibly tumbles before showing its value. */
-const DICE_SPIN_MS = 700;
+const DICE_SPIN_MS = 440;
 /** How long the settled value is held before the token starts moving. */
-const DICE_HOLD_MS = 380;
+const DICE_HOLD_MS = 190;
 
-const LAND_MS = 200;
-const CAPTURE_MS = 420;
-const FINISH_MS = 340;
-const NOTICE_MS = 300;
+const LAND_MS = 110;
+const CAPTURE_MS = 300;
+const FINISH_MS = 240;
+const NOTICE_MS = 190;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -144,7 +150,7 @@ async function walk(event, token) {
   let cursor = event.from >= 0 ? event.from : path[0];
 
   useGame.getState().setWalking({ ...base, progress: cursor, fromProgress: cursor, hopT: 1, lift: 0 });
-  await sleep(60);
+  await sleep(30);
   if (!alive(token)) return;
 
   for (let i = 0; i < path.length; i += 1) {
@@ -156,6 +162,7 @@ async function walk(event, token) {
   }
 
   if (!alive(token)) return;
+  sfx.tokenLand();
   useGame.getState().setWalking({
     ...base,
     progress: cursor,

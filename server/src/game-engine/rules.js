@@ -119,7 +119,15 @@ export function legalMoves(state, seat, dice) {
       if (blocked) continue;
     }
 
-    // Captures: only on the ring, only on an unsafe square.
+    /**
+     * Captures: only on the ring, only on an unsafe square.
+     *
+     * `isOnRing` is false for every home-column progress and for the centre, so
+     * a token that has turned into its own column can never be sent back — the
+     * home stretch is structurally safe, not safe by a flag someone could
+     * toggle off. Star squares and colour entries are the other safe cells, and
+     * those ARE configurable via SAFE_CELLS_ENABLED.
+     */
     let captures = [];
     if (B.isOnRing(to)) {
       const destRing = B.ringIndexFor(token.color, to);

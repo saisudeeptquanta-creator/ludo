@@ -51,11 +51,22 @@
    can be interrupted mid-flight, which is what previously made the die appear
    to stall on one number and then jump to the result.                       */
 
+.die__stage-wrap {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  /* Gives the rotations below real depth, so a beat that spins on X reads as
+     the die pitching away from you rather than squashing flat. */
+  perspective: 520px;
+}
+
 .die__body {
   position: relative;
   width: 76%;
   height: 76%;
   border-radius: 22%;
+  transform-style: preserve-3d;
   background: linear-gradient(150deg, #ffffff 0%, #eef1fb 55%, #dae0f2 100%);
   border: 1px solid rgb(160 170 205 / 0.55);
   box-shadow:
@@ -66,15 +77,25 @@
   place-items: center;
 }
 
-/* Each face change restarts this: a quick shake + tilt reads as a tumble. */
+/* Each face change restarts this. The beat pitches the die through a full
+   half-turn on X (so it visibly rolls end over end) while yawing by a random
+   amount on Y — the two together read as a real tumble rather than a wobble.
+   `--spin` / `--tilt` are set per beat from JS. Duration matches CYCLE_MS. */
 .die-btn--rolling .die__body {
-  animation: die-tumble 70ms linear;
+  animation: die-tumble 55ms linear;
 }
 
 @keyframes die-tumble {
-  0%   { transform: rotate(-13deg) scale(0.9); }
-  50%  { transform: rotate(7deg) scale(1.07); }
-  100% { transform: rotate(0deg) scale(1); }
+  0% {
+    transform: rotateX(0deg) rotateY(0deg) rotateZ(calc(var(--tilt, 0deg) * -0.3)) scale(0.94);
+  }
+  60% {
+    transform: rotateX(calc(var(--spin, 220deg) * 0.6)) rotateY(calc(var(--tilt, 0deg) * 0.8))
+      rotateZ(calc(var(--tilt, 0deg) * 0.2)) scale(1.06);
+  }
+  100% {
+    transform: rotateX(var(--spin, 220deg)) rotateY(var(--tilt, 0deg)) rotateZ(0deg) scale(1);
+  }
 }
 
 /* The landing. Plays once, when the number stops changing. */
